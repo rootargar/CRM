@@ -182,15 +182,18 @@ $usuario = obtenerDatosUsuario();
                 <small>Rol: <?php echo ucfirst($usuario['rol']); ?></small>
             </div>
             <ul>
-                <li><a href="#" onclick="mostrarInicio('dashboard.php')" >🏠 Inicio</a></li>
+                <li><a href="#" onclick="cargarPagina('dashboard.php')" >🏠 Inicio</a></li>
                 <li><a href="#" onclick="cargarPagina('seguimientos.php')">📞 Seguimientos</a></li>
                 <li><a href="#" onclick="cargarPagina('repvendedor.php')">📊 Reportes</a></li>
 
-                <?php if (esAdmin()): ?>
+                <?php if (esAdmin() || esSupervisor()): ?>
                 <li><a href="#" onclick="cargarPagina('clientes.php')">👥 Clientes</a></li>
                 <li><a href="#" onclick="cargarPagina('vendedores.php')">🤝 Vendedores</a></li>
                 <li><a href="#" onclick="cargarPagina('asignar.php')">📋 Asignar Clientes</a></li>
-                <li><a href="#" onclick="cargarPagina('reportes.php')">📊 Reportes</a></li>
+                <li><a href="#" onclick="cargarPagina('reportes.php')">📊 Reportes Generales</a></li>
+                <?php endif; ?>
+
+                <?php if (esAdmin()): ?>
                 <li><a href="#" onclick="cargarPagina('usuarios.php')">👤 Usuarios</a></li>
                 <?php endif; ?>
                 
@@ -200,15 +203,20 @@ $usuario = obtenerDatosUsuario();
 
         <main class="contenido">
             <div class="bienvenida" id="bienvenida">
-                <h1>Bienvenido <?php echo esAdmin() ? 'Administrador' : 'Vendedor'; ?></h1>
+                <h1>Bienvenido <?php echo esAdmin() ? 'Administrador' : (esSupervisor() ? 'Supervisor' : 'Vendedor'); ?></h1>
                 <p>
                     <?php if (esAdmin()): ?>
                         Gestiona eficientemente todo el sistema CRM. Controla vendedores, clientes y genera reportes completos.
+                    <?php elseif (esSupervisor()): ?>
+                        Supervisa las operaciones de tu sucursal. Gestiona vendedores, clientes y seguimientos de manera eficiente.
+                        <?php if ($usuario['sucursal_nombre']): ?>
+                        <br><small>Sucursal: <strong><?php echo htmlspecialchars($usuario['sucursal_nombre']); ?></strong></small>
+                        <?php endif; ?>
                     <?php else: ?>
                         Gestiona tus seguimientos con clientes. Registra visitas y llamadas de manera eficiente.
                     <?php endif; ?>
                 </p>
-                
+
                 <div class="imagen-crm">
                     <div class="icono-crm">📈</div>
                 </div>
@@ -264,12 +272,19 @@ $usuario = obtenerDatosUsuario();
             if (datosUsuario.rol === 'admin') {
                 return true;
             }
-            
-            if (datosUsuario.rol === 'vendedor') {
-                const paginasPermitidas = ['seguimientos.php','repvendedor.php'];
+
+            if (datosUsuario.rol === 'supervisor') {
+                // Supervisores tienen acceso a todos los módulos excepto usuarios
+                const paginasPermitidas = ['dashboard.php', 'seguimientos.php', 'repvendedor.php',
+                                           'clientes.php', 'vendedores.php', 'asignar.php', 'reportes.php'];
                 return paginasPermitidas.includes(pagina);
             }
-            
+
+            if (datosUsuario.rol === 'vendedor') {
+                const paginasPermitidas = ['dashboard.php', 'seguimientos.php', 'repvendedor.php'];
+                return paginasPermitidas.includes(pagina);
+            }
+
             return false;
         }
 
