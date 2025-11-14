@@ -474,7 +474,6 @@ if (esAdmin()) {
                 <div class="user-avatar">
                     <?php echo strtoupper(substr($usuario['nombre'], 0, 2)); ?>
                 </div>
-                <a href="logout.php" class="logout-btn">Cerrar Sesión</a>
             </div>
         </div>
 

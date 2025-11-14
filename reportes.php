@@ -7,8 +7,6 @@ $datosUsuario = obtenerDatosUsuario();
 
 // Obtener parámetros de filtro
 $tipoReporte = $_GET['tipo'] ?? 'clientes';
-$fechaInicio = $_GET['fecha_inicio'] ?? date('Y-m-01');
-$fechaFin = $_GET['fecha_fin'] ?? date('Y-m-d');
 $idVendedor = $_GET['id_vendedor'] ?? '';
 
 // Función para obtener vendedores activos
@@ -33,10 +31,10 @@ function obtenerVendedores($conn, $idSucursal = null) {
 }
 
 // Función para reporte de clientes
-function reporteClientes($conn, $fechaInicio, $fechaFin, $idVendedor = '', $idSucursal = null) {
+function reporteClientes($conn, $idVendedor = '', $idSucursal = null) {
     $whereVendedor = '';
     $whereSucursal = '';
-    $params = [$fechaInicio, $fechaFin];
+    $params = [];
 
     if (!empty($idVendedor)) {
         $whereVendedor = "AND cv.IdVendedor = ?";
@@ -61,7 +59,6 @@ function reporteClientes($conn, $fechaInicio, $fechaFin, $idVendedor = '', $idSu
             LEFT JOIN ClientesVendedoresCRM cv ON c.IdCliente = cv.IdCliente AND cv.Activo = 1
             LEFT JOIN VendedoresCRM v ON cv.IdVendedor = v.IdVendedor
             LEFT JOIN SeguimientosCRM s ON c.IdCliente = s.IdCliente
-                AND s.Fecha BETWEEN ? AND DATEADD(day, 1, ?)
             WHERE c.Activo = 1 $whereVendedor $whereSucursal
             GROUP BY c.IdCliente, c.Nombre, c.Telefono, c.Email, v.Nombre, cv.FechaAsignacion
             ORDER BY c.Nombre";
@@ -83,9 +80,9 @@ function reporteClientes($conn, $fechaInicio, $fechaFin, $idVendedor = '', $idSu
 }
 
 // Función para reporte de vendedores
-function reporteVendedores($conn, $fechaInicio, $fechaFin, $idSucursal = null) {
+function reporteVendedores($conn, $idSucursal = null) {
     $whereSucursal = '';
-    $params = [$fechaInicio, $fechaFin];
+    $params = [];
 
     if ($idSucursal !== null) {
         $whereSucursal = "AND v.IdSucursal = ?";
@@ -103,7 +100,6 @@ function reporteVendedores($conn, $fechaInicio, $fechaFin, $idSucursal = null) {
             FROM VendedoresCRM v
             LEFT JOIN ClientesVendedoresCRM cv ON v.IdVendedor = cv.IdVendedor AND cv.Activo = 1
             LEFT JOIN SeguimientosCRM s ON v.IdVendedor = s.IdVendedor
-                AND s.Fecha BETWEEN ? AND DATEADD(day, 1, ?)
             WHERE v.Activo = 1 $whereSucursal
             GROUP BY v.IdVendedor, v.Nombre
             ORDER BY v.Nombre";
@@ -119,19 +115,27 @@ function reporteVendedores($conn, $fechaInicio, $fechaFin, $idSucursal = null) {
 }
 
 // Función para reporte de seguimientos
-function reporteSeguimientos($conn, $fechaInicio, $fechaFin, $idVendedor = '', $idSucursal = null) {
+function reporteSeguimientos($conn, $idVendedor = '', $idSucursal = null) {
     $whereVendedor = '';
     $whereSucursal = '';
-    $params = [$fechaInicio, $fechaFin];
+    $params = [];
+    $whereConditions = [];
 
     if (!empty($idVendedor)) {
-        $whereVendedor = "AND s.IdVendedor = ?";
+        $whereVendedor = "s.IdVendedor = ?";
+        $whereConditions[] = $whereVendedor;
         $params[] = $idVendedor;
     }
 
     if ($idSucursal !== null) {
-        $whereSucursal = "AND c.IdSucursal = ?";
+        $whereSucursal = "c.IdSucursal = ?";
+        $whereConditions[] = $whereSucursal;
         $params[] = $idSucursal;
+    }
+
+    $whereClause = '';
+    if (!empty($whereConditions)) {
+        $whereClause = 'WHERE ' . implode(' AND ', $whereConditions);
     }
 
     $sql = "SELECT
@@ -147,7 +151,7 @@ function reporteSeguimientos($conn, $fechaInicio, $fechaFin, $idVendedor = '', $
             FROM SeguimientosCRM s
             INNER JOIN ClientesCRM c ON s.IdCliente = c.IdCliente
             INNER JOIN VendedoresCRM v ON s.IdVendedor = v.IdVendedor
-            WHERE s.Fecha BETWEEN ? AND DATEADD(day, 1, ?) $whereVendedor $whereSucursal
+            $whereClause
             ORDER BY s.Fecha DESC";
 
     $stmt = sqlsrv_query($conn, $sql, $params);
@@ -177,13 +181,13 @@ $datos = [];
 
 switch ($tipoReporte) {
     case 'clientes':
-        $datos = reporteClientes($conn, $fechaInicio, $fechaFin, $idVendedor, $idSucursalFiltro);
+        $datos = reporteClientes($conn, $idVendedor, $idSucursalFiltro);
         break;
     case 'vendedores':
-        $datos = reporteVendedores($conn, $fechaInicio, $fechaFin, $idSucursalFiltro);
+        $datos = reporteVendedores($conn, $idSucursalFiltro);
         break;
     case 'seguimientos':
-        $datos = reporteSeguimientos($conn, $fechaInicio, $fechaFin, $idVendedor, $idSucursalFiltro);
+        $datos = reporteSeguimientos($conn, $idVendedor, $idSucursalFiltro);
         break;
 }
 ?>
@@ -465,23 +469,13 @@ switch ($tipoReporte) {
                             </select>
                         </div>
 
-                        <div class="form-group">
-                            <label for="fecha_inicio">Fecha Inicio</label>
-                            <input type="date" name="fecha_inicio" id="fecha_inicio" value="<?php echo $fechaInicio; ?>">
-                        </div>
-
-                        <div class="form-group">
-                            <label for="fecha_fin">Fecha Fin</label>
-                            <input type="date" name="fecha_fin" id="fecha_fin" value="<?php echo $fechaFin; ?>">
-                        </div>
-
                         <?php if ($tipoReporte != 'vendedores'): ?>
                         <div class="form-group">
                             <label for="id_vendedor">Vendedor</label>
                             <select name="id_vendedor" id="id_vendedor">
                                 <option value="">Todos los vendedores</option>
                                 <?php foreach ($vendedores as $vendedor): ?>
-                                <option value="<?php echo $vendedor['IdVendedor']; ?>" 
+                                <option value="<?php echo $vendedor['IdVendedor']; ?>"
                                         <?php echo $idVendedor == $vendedor['IdVendedor'] ? 'selected' : ''; ?>>
                                     <?php echo htmlspecialchars($vendedor['Nombre']); ?>
                                 </option>
@@ -672,15 +666,6 @@ switch ($tipoReporte) {
     </div>
 
     <script>
-        // Auto-submit form when dates change
-        document.getElementById('fecha_inicio').addEventListener('change', function() {
-            this.form.submit();
-        });
-        
-        document.getElementById('fecha_fin').addEventListener('change', function() {
-            this.form.submit();
-        });
-        
         // Auto-submit form when vendor selection changes (if visible)
         const vendedorSelect = document.getElementById('id_vendedor');
         if (vendedorSelect) {
