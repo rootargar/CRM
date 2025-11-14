@@ -32,11 +32,12 @@ switch($accion) {
                 if (empty($nombre)) {
                     $mensaje .= "<div class='alert alert-danger'>El nombre del vendedor es requerido</div>";
                 } else {
+                    $idSucursal = ($_POST['idSucursal'] != '') ? $_POST['idSucursal'] : null;
                     $mensaje .= "<div class='alert alert-info'>DEBUG: Nombre válido, preparando consulta...</div>";
-                    $sql = "INSERT INTO VendedoresCRM (Nombre) VALUES (?)";
+                    $sql = "INSERT INTO VendedoresCRM (Nombre, IdSucursal) VALUES (?, ?)";
                     $mensaje .= "<div class='alert alert-info'>DEBUG: SQL: " . $sql . "</div>";
-                    
-                    $stmt = sqlsrv_prepare($conn, $sql, array($nombre));
+
+                    $stmt = sqlsrv_prepare($conn, $sql, array($nombre, $idSucursal));
                     
                     if ($stmt === false) {
                         $errors = sqlsrv_errors();
@@ -65,11 +66,12 @@ switch($accion) {
             try {
                 $nombre = trim($_POST['nombre']);
                 $id = $_POST['id'];
+                $idSucursal = ($_POST['idSucursal'] != '') ? $_POST['idSucursal'] : null;
                 if (empty($nombre)) {
                     $mensaje = "<div class='alert alert-danger'>El nombre del vendedor es requerido</div>";
                 } else {
-                    $sql = "UPDATE VendedoresCRM SET Nombre=? WHERE IdVendedor=?";
-                    $stmt = sqlsrv_prepare($conn, $sql, array($nombre, $id));
+                    $sql = "UPDATE VendedoresCRM SET Nombre=?, IdSucursal=? WHERE IdVendedor=?";
+                    $stmt = sqlsrv_prepare($conn, $sql, array($nombre, $idSucursal, $id));
                     
                     if (sqlsrv_execute($stmt)) {
                         $mensaje = "<div class='alert alert-success'>Vendedor actualizado exitosamente</div>";
@@ -147,14 +149,26 @@ switch($accion) {
         break;
 }
 
+// Obtener lista de sucursales para el select
+$sqlSucursales = "SELECT IdSucursal, Nombre FROM SucursalesCRM WHERE Activo = 1 ORDER BY IdSucursal";
+$stmtSucursales = sqlsrv_query($conn, $sqlSucursales);
+$sucursales = array();
+if ($stmtSucursales) {
+    while ($row = sqlsrv_fetch_array($stmtSucursales, SQLSRV_FETCH_ASSOC)) {
+        $sucursales[] = $row;
+    }
+}
+
 // Obtener lista de vendedores
 $busqueda = $_GET['buscar'] ?? '';
 $filtro_activo = $_GET['filtro'] ?? '1';
 
-$sql = "SELECT v.IdVendedor, v.Nombre, v.Activo,
+$sql = "SELECT v.IdVendedor, v.Nombre, v.Activo, v.IdSucursal,
+               s.Nombre as NombreSucursal,
                COUNT(CASE WHEN cv.Activo = 1 THEN 1 END) as TotalClientes
         FROM VendedoresCRM v
         LEFT JOIN ClientesVendedoresCRM cv ON v.IdVendedor = cv.IdVendedor
+        LEFT JOIN SucursalesCRM s ON v.IdSucursal = s.IdSucursal
         WHERE 1=1";
 $params = array();
 
@@ -168,7 +182,7 @@ if ($filtro_activo !== 'todos') {
     $params[] = $filtro_activo;
 }
 
-$sql .= " GROUP BY v.IdVendedor, v.Nombre, v.Activo ORDER BY v.Nombre";
+$sql .= " GROUP BY v.IdVendedor, v.Nombre, v.Activo, v.IdSucursal, s.Nombre ORDER BY v.Nombre";
 
 $stmt = sqlsrv_prepare($conn, $sql, $params);
 sqlsrv_execute($stmt);
@@ -347,6 +361,7 @@ if ($accion == 'editar' && isset($_GET['id'])) {
                                     <tr>
                                         <th>ID</th>
                                         <th>Nombre</th>
+                                        <th>Sucursal</th>
                                         <th>Clientes Asignados</th>
                                         <th>Estado</th>
                                         <th>Acciones</th>
@@ -355,7 +370,7 @@ if ($accion == 'editar' && isset($_GET['id'])) {
                                 <tbody>
                                     <?php if (empty($vendedores)): ?>
                                         <tr>
-                                            <td colspan="5" class="text-center py-4">
+                                            <td colspan="6" class="text-center py-4">
                                                 <i class="fas fa-inbox fa-2x text-muted"></i>
                                                 <p class="mt-2 text-muted">No se encontraron vendedores</p>
                                             </td>
@@ -366,6 +381,13 @@ if ($accion == 'editar' && isset($_GET['id'])) {
                                                 <td><?php echo $vendedor['IdVendedor']; ?></td>
                                                 <td>
                                                     <strong><?php echo htmlspecialchars($vendedor['Nombre']); ?></strong>
+                                                </td>
+                                                <td>
+                                                    <?php if ($vendedor['NombreSucursal']): ?>
+                                                        <span class="badge bg-primary"><?php echo htmlspecialchars($vendedor['NombreSucursal']); ?></span>
+                                                    <?php else: ?>
+                                                        <span class="text-muted"><em>Todas</em></span>
+                                                    <?php endif; ?>
                                                 </td>
                                                 <td>
                                                     <span class="badge bg-info"><?php echo $vendedor['TotalClientes']; ?> clientes</span>
@@ -430,10 +452,22 @@ if ($accion == 'editar' && isset($_GET['id'])) {
                     </div>
                     <div class="modal-body">
                         <input type="hidden" name="id" id="vendedorId" value="">
-                        
+
                         <div class="mb-3">
                             <label class="form-label">Nombre *</label>
                             <input type="text" name="nombre" id="vendedorNombre" class="form-control" required maxlength="100" placeholder="Ingrese el nombre del vendedor">
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Sucursal</label>
+                            <select name="idSucursal" id="vendedorSucursal" class="form-control">
+                                <option value="">-- Todas las sucursales --</option>
+                                <?php foreach ($sucursales as $suc): ?>
+                                    <option value="<?php echo $suc['IdSucursal']; ?>">
+                                        <?php echo htmlspecialchars($suc['Nombre']); ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
                         </div>
                     </div>
                     <div class="modal-footer">
@@ -480,7 +514,8 @@ if ($accion == 'editar' && isset($_GET['id'])) {
             document.getElementById('formVendedor').action = '?accion=editar';
             document.getElementById('vendedorId').value = vendedor.IdVendedor;
             document.getElementById('vendedorNombre').value = vendedor.Nombre;
-            
+            document.getElementById('vendedorSucursal').value = vendedor.IdSucursal || '';
+
             var modal = new bootstrap.Modal(document.getElementById('modalVendedor'));
             modal.show();
         }

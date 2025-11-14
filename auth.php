@@ -12,11 +12,13 @@ function verificarSesion() {
 
 function obtenerDatosUsuario() {
     return [
-        'id_usuario' => $_SESSION['usuario_id'],
-        'usuario' => $_SESSION['usuario'],
-        'nombre' => $_SESSION['nombre'],
-        'rol' => $_SESSION['rol'],
-        'id_vendedor' => $_SESSION['id_vendedor']
+        'id_usuario' => $_SESSION['usuario_id'] ?? null,
+        'usuario' => $_SESSION['usuario'] ?? null,
+        'nombre' => $_SESSION['nombre'] ?? null,
+        'rol' => $_SESSION['rol'] ?? null,
+        'id_vendedor' => $_SESSION['id_vendedor'] ?? null,
+        'id_sucursal' => $_SESSION['id_sucursal'] ?? null,
+        'sucursal_nombre' => $_SESSION['sucursal_nombre'] ?? null
     ];
 }
 

@@ -142,22 +142,44 @@ if ($_POST && isset($_POST['accion']) && $_POST['accion'] == 'actualizar') {
     }
 }
 
-// Obtener seguimientos según el rol
+// Obtener seguimientos según el rol y sucursal
 if (esVendedor()) {
-    $sql = "SELECT s.*, c.Nombre as NombreCliente 
-            FROM SeguimientosCRM s 
-            INNER JOIN ClientesCRM c ON s.IdCliente = c.IdCliente 
-            WHERE s.IdVendedor = ? 
+    // Vendedores ven solo sus seguimientos (ya está filtrado por IdVendedor)
+    $sql = "SELECT s.*, c.Nombre as NombreCliente, v.Nombre as NombreVendedor,
+                   suc.Nombre as NombreSucursal
+            FROM SeguimientosCRM s
+            INNER JOIN ClientesCRM c ON s.IdCliente = c.IdCliente
+            INNER JOIN VendedoresCRM v ON s.IdVendedor = v.IdVendedor
+            LEFT JOIN SucursalesCRM suc ON v.IdSucursal = suc.IdSucursal
+            WHERE s.IdVendedor = ?
             ORDER BY s.Fecha DESC";
     $params = array($usuario['id_vendedor']);
     $stmt = sqlsrv_query($conn, $sql, $params);
 } else {
-    $sql = "SELECT s.*, c.Nombre as NombreCliente, v.Nombre as NombreVendedor 
-            FROM SeguimientosCRM s 
-            INNER JOIN ClientesCRM c ON s.IdCliente = c.IdCliente 
-            INNER JOIN VendedoresCRM v ON s.IdVendedor = v.IdVendedor 
-            ORDER BY s.Fecha DESC";
-    $stmt = sqlsrv_query($conn, $sql);
+    // Admin: si tiene sucursal asignada, filtrar por sucursal; si no, ver todos
+    if (!empty($usuario['id_sucursal'])) {
+        // Admin con sucursal asignada: ver seguimientos de vendedores de su sucursal
+        $sql = "SELECT s.*, c.Nombre as NombreCliente, v.Nombre as NombreVendedor,
+                       suc.Nombre as NombreSucursal
+                FROM SeguimientosCRM s
+                INNER JOIN ClientesCRM c ON s.IdCliente = c.IdCliente
+                INNER JOIN VendedoresCRM v ON s.IdVendedor = v.IdVendedor
+                LEFT JOIN SucursalesCRM suc ON v.IdSucursal = suc.IdSucursal
+                WHERE v.IdSucursal = ? OR v.IdSucursal IS NULL
+                ORDER BY s.Fecha DESC";
+        $params = array($usuario['id_sucursal']);
+        $stmt = sqlsrv_query($conn, $sql, $params);
+    } else {
+        // Admin sin sucursal asignada: ver todos los seguimientos
+        $sql = "SELECT s.*, c.Nombre as NombreCliente, v.Nombre as NombreVendedor,
+                       suc.Nombre as NombreSucursal
+                FROM SeguimientosCRM s
+                INNER JOIN ClientesCRM c ON s.IdCliente = c.IdCliente
+                INNER JOIN VendedoresCRM v ON s.IdVendedor = v.IdVendedor
+                LEFT JOIN SucursalesCRM suc ON v.IdSucursal = suc.IdSucursal
+                ORDER BY s.Fecha DESC";
+        $stmt = sqlsrv_query($conn, $sql);
+    }
 }
 
 $seguimientos = array();
@@ -170,16 +192,28 @@ if ($stmt) {
 
 // Obtener clientes para el select
 if (esVendedor()) {
-    $sql = "SELECT DISTINCT c.IdCliente, c.Nombre 
-            FROM ClientesCRM c 
-            INNER JOIN ClientesVendedoresCRM cv ON c.IdCliente = cv.IdCliente 
-            WHERE cv.IdVendedor = ? AND cv.Activo = 1 AND c.Activo = 1 
+    $sql = "SELECT DISTINCT c.IdCliente, c.Nombre
+            FROM ClientesCRM c
+            INNER JOIN ClientesVendedoresCRM cv ON c.IdCliente = cv.IdCliente
+            WHERE cv.IdVendedor = ? AND cv.Activo = 1 AND c.Activo = 1
             ORDER BY c.Nombre";
     $params = array($usuario['id_vendedor']);
     $stmt = sqlsrv_query($conn, $sql, $params);
 } else {
-    $sql = "SELECT IdCliente, Nombre FROM ClientesCRM WHERE Activo = 1 ORDER BY Nombre";
-    $stmt = sqlsrv_query($conn, $sql);
+    // Admin: si tiene sucursal asignada, mostrar clientes de vendedores de su sucursal
+    if (!empty($usuario['id_sucursal'])) {
+        $sql = "SELECT DISTINCT c.IdCliente, c.Nombre
+                FROM ClientesCRM c
+                INNER JOIN ClientesVendedoresCRM cv ON c.IdCliente = cv.IdCliente
+                INNER JOIN VendedoresCRM v ON cv.IdVendedor = v.IdVendedor
+                WHERE c.Activo = 1 AND (v.IdSucursal = ? OR v.IdSucursal IS NULL)
+                ORDER BY c.Nombre";
+        $params = array($usuario['id_sucursal']);
+        $stmt = sqlsrv_query($conn, $sql, $params);
+    } else {
+        $sql = "SELECT IdCliente, Nombre FROM ClientesCRM WHERE Activo = 1 ORDER BY Nombre";
+        $stmt = sqlsrv_query($conn, $sql);
+    }
 }
 
 $clientes = array();
@@ -193,8 +227,17 @@ if ($stmt) {
 // Obtener vendedores para admin
 $vendedores = array();
 if (esAdmin()) {
-    $sql = "SELECT IdVendedor, Nombre FROM VendedoresCRM WHERE Activo = 1 ORDER BY Nombre";
-    $stmt = sqlsrv_query($conn, $sql);
+    // Admin: si tiene sucursal asignada, mostrar solo vendedores de su sucursal
+    if (!empty($usuario['id_sucursal'])) {
+        $sql = "SELECT IdVendedor, Nombre FROM VendedoresCRM
+                WHERE Activo = 1 AND (IdSucursal = ? OR IdSucursal IS NULL)
+                ORDER BY Nombre";
+        $params = array($usuario['id_sucursal']);
+        $stmt = sqlsrv_query($conn, $sql, $params);
+    } else {
+        $sql = "SELECT IdVendedor, Nombre FROM VendedoresCRM WHERE Activo = 1 ORDER BY Nombre";
+        $stmt = sqlsrv_query($conn, $sql);
+    }
     if ($stmt) {
         while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
             $vendedores[] = $row;
