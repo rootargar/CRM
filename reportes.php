@@ -8,6 +8,8 @@ $datosUsuario = obtenerDatosUsuario();
 // Obtener parámetros de filtro
 $tipoReporte = $_GET['tipo'] ?? 'clientes';
 $idVendedor = $_GET['id_vendedor'] ?? '';
+$paginaActual = isset($_GET['pagina']) ? (int)$_GET['pagina'] : 1;
+$registrosPorPagina = 20;
 
 // Función para obtener vendedores activos
 function obtenerVendedores($conn, $idSucursal = null) {
@@ -31,7 +33,7 @@ function obtenerVendedores($conn, $idSucursal = null) {
 }
 
 // Función para reporte de clientes
-function reporteClientes($conn, $idVendedor = '', $idSucursal = null) {
+function reporteClientes($conn, $idVendedor = '', $idSucursal = null, $pagina = 1, $registrosPorPagina = 20) {
     $whereVendedor = '';
     $whereSucursal = '';
     $params = [];
@@ -45,6 +47,9 @@ function reporteClientes($conn, $idVendedor = '', $idSucursal = null) {
         $whereSucursal = "AND c.IdSucursal = ?";
         $params[] = $idSucursal;
     }
+
+    // Calcular offset
+    $offset = ($pagina - 1) * $registrosPorPagina;
 
     $sql = "SELECT
                 c.IdCliente,
@@ -61,7 +66,9 @@ function reporteClientes($conn, $idVendedor = '', $idSucursal = null) {
             LEFT JOIN SeguimientosCRM s ON c.IdCliente = s.IdCliente
             WHERE c.Activo = 1 $whereVendedor $whereSucursal
             GROUP BY c.IdCliente, c.Nombre, c.Telefono, c.Email, v.Nombre, cv.FechaAsignacion
-            ORDER BY c.Nombre";
+            ORDER BY c.Nombre
+            OFFSET $offset ROWS
+            FETCH NEXT $registrosPorPagina ROWS ONLY";
 
     $stmt = sqlsrv_query($conn, $sql, $params);
     $resultados = [];
@@ -80,7 +87,7 @@ function reporteClientes($conn, $idVendedor = '', $idSucursal = null) {
 }
 
 // Función para reporte de vendedores
-function reporteVendedores($conn, $idSucursal = null) {
+function reporteVendedores($conn, $idSucursal = null, $pagina = 1, $registrosPorPagina = 20) {
     $whereSucursal = '';
     $params = [];
 
@@ -88,6 +95,9 @@ function reporteVendedores($conn, $idSucursal = null) {
         $whereSucursal = "AND v.IdSucursal = ?";
         $params[] = $idSucursal;
     }
+
+    // Calcular offset
+    $offset = ($pagina - 1) * $registrosPorPagina;
 
     $sql = "SELECT
                 v.IdVendedor,
@@ -102,7 +112,9 @@ function reporteVendedores($conn, $idSucursal = null) {
             LEFT JOIN SeguimientosCRM s ON v.IdVendedor = s.IdVendedor
             WHERE v.Activo = 1 $whereSucursal
             GROUP BY v.IdVendedor, v.Nombre
-            ORDER BY v.Nombre";
+            ORDER BY v.Nombre
+            OFFSET $offset ROWS
+            FETCH NEXT $registrosPorPagina ROWS ONLY";
 
     $stmt = sqlsrv_query($conn, $sql, $params);
     $resultados = [];
@@ -115,7 +127,7 @@ function reporteVendedores($conn, $idSucursal = null) {
 }
 
 // Función para reporte de seguimientos
-function reporteSeguimientos($conn, $idVendedor = '', $idSucursal = null) {
+function reporteSeguimientos($conn, $idVendedor = '', $idSucursal = null, $pagina = 1, $registrosPorPagina = 20) {
     $whereVendedor = '';
     $whereSucursal = '';
     $params = [];
@@ -138,6 +150,9 @@ function reporteSeguimientos($conn, $idVendedor = '', $idSucursal = null) {
         $whereClause = 'WHERE ' . implode(' AND ', $whereConditions);
     }
 
+    // Calcular offset
+    $offset = ($pagina - 1) * $registrosPorPagina;
+
     $sql = "SELECT
                 s.IdSeguimiento,
                 c.Nombre as NombreCliente,
@@ -152,7 +167,9 @@ function reporteSeguimientos($conn, $idVendedor = '', $idSucursal = null) {
             INNER JOIN ClientesCRM c ON s.IdCliente = c.IdCliente
             INNER JOIN VendedoresCRM v ON s.IdVendedor = v.IdVendedor
             $whereClause
-            ORDER BY s.Fecha DESC";
+            ORDER BY s.Fecha DESC
+            OFFSET $offset ROWS
+            FETCH NEXT $registrosPorPagina ROWS ONLY";
 
     $stmt = sqlsrv_query($conn, $sql, $params);
     $resultados = [];
@@ -168,6 +185,142 @@ function reporteSeguimientos($conn, $idVendedor = '', $idSucursal = null) {
     return $resultados;
 }
 
+// Función para reporte de usuarios
+function reporteUsuarios($conn, $idSucursal = null, $pagina = 1, $registrosPorPagina = 20) {
+    $whereSucursal = '';
+    $params = [];
+
+    if ($idSucursal !== null) {
+        $whereSucursal = "AND u.IdSucursal = ?";
+        $params[] = $idSucursal;
+    }
+
+    // Calcular offset
+    $offset = ($pagina - 1) * $registrosPorPagina;
+
+    $sql = "SELECT
+                u.IdUsuario,
+                u.Usuario,
+                u.Nombre,
+                u.Rol,
+                u.Activo,
+                v.Nombre as NombreVendedor,
+                s.Nombre as NombreSucursal
+            FROM UsuariosCRM u
+            LEFT JOIN VendedoresCRM v ON u.IdVendedor = v.IdVendedor
+            LEFT JOIN SucursalesCRM s ON u.IdSucursal = s.IdSucursal
+            WHERE 1=1 $whereSucursal
+            ORDER BY u.Nombre
+            OFFSET $offset ROWS
+            FETCH NEXT $registrosPorPagina ROWS ONLY";
+
+    $stmt = sqlsrv_query($conn, $sql, $params);
+    $resultados = [];
+    if ($stmt !== false) {
+        while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+            $resultados[] = $row;
+        }
+    }
+    return $resultados;
+}
+
+// Funciones para contar total de registros
+function contarClientes($conn, $idVendedor = '', $idSucursal = null) {
+    $whereVendedor = '';
+    $whereSucursal = '';
+    $params = [];
+
+    if (!empty($idVendedor)) {
+        $whereVendedor = "AND cv.IdVendedor = ?";
+        $params[] = $idVendedor;
+    }
+
+    if ($idSucursal !== null) {
+        $whereSucursal = "AND c.IdSucursal = ?";
+        $params[] = $idSucursal;
+    }
+
+    $sql = "SELECT COUNT(DISTINCT c.IdCliente) as total
+            FROM ClientesCRM c
+            LEFT JOIN ClientesVendedoresCRM cv ON c.IdCliente = cv.IdCliente AND cv.Activo = 1
+            WHERE c.Activo = 1 $whereVendedor $whereSucursal";
+
+    $stmt = sqlsrv_query($conn, $sql, $params);
+    if ($stmt !== false) {
+        $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+        return $row['total'];
+    }
+    return 0;
+}
+
+function contarVendedores($conn, $idSucursal = null) {
+    $whereSucursal = '';
+    $params = [];
+
+    if ($idSucursal !== null) {
+        $whereSucursal = "AND IdSucursal = ?";
+        $params[] = $idSucursal;
+    }
+
+    $sql = "SELECT COUNT(*) as total FROM VendedoresCRM WHERE Activo = 1 $whereSucursal";
+    $stmt = sqlsrv_query($conn, $sql, $params);
+    if ($stmt !== false) {
+        $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+        return $row['total'];
+    }
+    return 0;
+}
+
+function contarSeguimientos($conn, $idVendedor = '', $idSucursal = null) {
+    $whereConditions = [];
+    $params = [];
+
+    if (!empty($idVendedor)) {
+        $whereConditions[] = "s.IdVendedor = ?";
+        $params[] = $idVendedor;
+    }
+
+    if ($idSucursal !== null) {
+        $whereConditions[] = "c.IdSucursal = ?";
+        $params[] = $idSucursal;
+    }
+
+    $whereClause = '';
+    if (!empty($whereConditions)) {
+        $whereClause = 'WHERE ' . implode(' AND ', $whereConditions);
+    }
+
+    $sql = "SELECT COUNT(*) as total
+            FROM SeguimientosCRM s
+            INNER JOIN ClientesCRM c ON s.IdCliente = c.IdCliente
+            $whereClause";
+
+    $stmt = sqlsrv_query($conn, $sql, $params);
+    if ($stmt !== false) {
+        $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+        return $row['total'];
+    }
+    return 0;
+}
+
+function contarUsuarios($conn, $idSucursal = null) {
+    $whereSucursal = '';
+    $params = [];
+
+    if ($idSucursal !== null) {
+        $whereSucursal = "AND IdSucursal = ?";
+        $params[] = $idSucursal;
+    }
+
+    $sql = "SELECT COUNT(*) as total FROM UsuariosCRM WHERE 1=1 $whereSucursal";
+    $stmt = sqlsrv_query($conn, $sql, $params);
+    if ($stmt !== false) {
+        $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
+        return $row['total'];
+    }
+    return 0;
+}
+
 // Determinar el filtro de sucursal según el rol
 $idSucursalFiltro = null;
 if (esSupervisor()) {
@@ -178,18 +331,29 @@ if (esSupervisor()) {
 // Obtener datos según el tipo de reporte
 $vendedores = obtenerVendedores($conn, $idSucursalFiltro);
 $datos = [];
+$totalRegistros = 0;
 
 switch ($tipoReporte) {
     case 'clientes':
-        $datos = reporteClientes($conn, $idVendedor, $idSucursalFiltro);
+        $datos = reporteClientes($conn, $idVendedor, $idSucursalFiltro, $paginaActual, $registrosPorPagina);
+        $totalRegistros = contarClientes($conn, $idVendedor, $idSucursalFiltro);
         break;
     case 'vendedores':
-        $datos = reporteVendedores($conn, $idSucursalFiltro);
+        $datos = reporteVendedores($conn, $idSucursalFiltro, $paginaActual, $registrosPorPagina);
+        $totalRegistros = contarVendedores($conn, $idSucursalFiltro);
         break;
     case 'seguimientos':
-        $datos = reporteSeguimientos($conn, $idVendedor, $idSucursalFiltro);
+        $datos = reporteSeguimientos($conn, $idVendedor, $idSucursalFiltro, $paginaActual, $registrosPorPagina);
+        $totalRegistros = contarSeguimientos($conn, $idVendedor, $idSucursalFiltro);
+        break;
+    case 'usuarios':
+        $datos = reporteUsuarios($conn, $idSucursalFiltro, $paginaActual, $registrosPorPagina);
+        $totalRegistros = contarUsuarios($conn, $idSucursalFiltro);
         break;
 }
+
+// Calcular total de páginas
+$totalPaginas = ceil($totalRegistros / $registrosPorPagina);
 ?>
 
 <!DOCTYPE html>
@@ -422,6 +586,50 @@ switch ($tipoReporte) {
             opacity: 1;
         }
 
+        .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 0.5rem;
+            margin-top: 1.5rem;
+            padding: 1rem 0;
+        }
+
+        .pagination a,
+        .pagination span {
+            padding: 0.5rem 0.75rem;
+            border: 1px solid #dee2e6;
+            border-radius: 5px;
+            text-decoration: none;
+            color: #495057;
+            transition: all 0.3s;
+        }
+
+        .pagination a:hover {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+
+        .pagination .active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-color: #667eea;
+        }
+
+        .pagination .disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+
+        .pagination-info {
+            text-align: center;
+            color: #6c757d;
+            margin-top: 1rem;
+            font-size: 0.9rem;
+        }
+
         @media (max-width: 768px) {
             .container {
                 padding: 0 0.5rem;
@@ -466,10 +674,11 @@ switch ($tipoReporte) {
                                 <option value="clientes" <?php echo $tipoReporte == 'clientes' ? 'selected' : ''; ?>>Clientes</option>
                                 <option value="vendedores" <?php echo $tipoReporte == 'vendedores' ? 'selected' : ''; ?>>Vendedores</option>
                                 <option value="seguimientos" <?php echo $tipoReporte == 'seguimientos' ? 'selected' : ''; ?>>Seguimientos</option>
+                                <option value="usuarios" <?php echo $tipoReporte == 'usuarios' ? 'selected' : ''; ?>>Usuarios</option>
                             </select>
                         </div>
 
-                        <?php if ($tipoReporte != 'vendedores'): ?>
+                        <?php if ($tipoReporte != 'vendedores' && $tipoReporte != 'usuarios'): ?>
                         <div class="form-group">
                             <label for="id_vendedor">Vendedor</label>
                             <select name="id_vendedor" id="id_vendedor">
@@ -537,6 +746,49 @@ switch ($tipoReporte) {
                                 <?php endforeach; ?>
                             </tbody>
                         </table>
+
+                        <?php if ($totalPaginas > 1): ?>
+                        <div class="pagination">
+                            <?php if ($paginaActual > 1): ?>
+                                <a href="?tipo=<?php echo $tipoReporte; ?>&id_vendedor=<?php echo $idVendedor; ?>&pagina=<?php echo $paginaActual - 1; ?>">← Anterior</a>
+                            <?php else: ?>
+                                <span class="disabled">← Anterior</span>
+                            <?php endif; ?>
+
+                            <?php
+                            $rango = 2;
+                            $inicio = max(1, $paginaActual - $rango);
+                            $fin = min($totalPaginas, $paginaActual + $rango);
+
+                            if ($inicio > 1) {
+                                echo '<a href="?tipo=' . $tipoReporte . '&id_vendedor=' . $idVendedor . '&pagina=1">1</a>';
+                                if ($inicio > 2) echo '<span>...</span>';
+                            }
+
+                            for ($i = $inicio; $i <= $fin; $i++) {
+                                if ($i == $paginaActual) {
+                                    echo '<span class="active">' . $i . '</span>';
+                                } else {
+                                    echo '<a href="?tipo=' . $tipoReporte . '&id_vendedor=' . $idVendedor . '&pagina=' . $i . '">' . $i . '</a>';
+                                }
+                            }
+
+                            if ($fin < $totalPaginas) {
+                                if ($fin < $totalPaginas - 1) echo '<span>...</span>';
+                                echo '<a href="?tipo=' . $tipoReporte . '&id_vendedor=' . $idVendedor . '&pagina=' . $totalPaginas . '">' . $totalPaginas . '</a>';
+                            }
+                            ?>
+
+                            <?php if ($paginaActual < $totalPaginas): ?>
+                                <a href="?tipo=<?php echo $tipoReporte; ?>&id_vendedor=<?php echo $idVendedor; ?>&pagina=<?php echo $paginaActual + 1; ?>">Siguiente →</a>
+                            <?php else: ?>
+                                <span class="disabled">Siguiente →</span>
+                            <?php endif; ?>
+                        </div>
+                        <div class="pagination-info">
+                            Página <?php echo $paginaActual; ?> de <?php echo $totalPaginas; ?> (Total: <?php echo $totalRegistros; ?> registros)
+                        </div>
+                        <?php endif; ?>
                     <?php endif; ?>
                 </div>
             </div>
@@ -595,6 +847,49 @@ switch ($tipoReporte) {
                                 <?php endforeach; ?>
                             </tbody>
                         </table>
+
+                        <?php if ($totalPaginas > 1): ?>
+                        <div class="pagination">
+                            <?php if ($paginaActual > 1): ?>
+                                <a href="?tipo=<?php echo $tipoReporte; ?>&pagina=<?php echo $paginaActual - 1; ?>">← Anterior</a>
+                            <?php else: ?>
+                                <span class="disabled">← Anterior</span>
+                            <?php endif; ?>
+
+                            <?php
+                            $rango = 2;
+                            $inicio = max(1, $paginaActual - $rango);
+                            $fin = min($totalPaginas, $paginaActual + $rango);
+
+                            if ($inicio > 1) {
+                                echo '<a href="?tipo=' . $tipoReporte . '&pagina=1">1</a>';
+                                if ($inicio > 2) echo '<span>...</span>';
+                            }
+
+                            for ($i = $inicio; $i <= $fin; $i++) {
+                                if ($i == $paginaActual) {
+                                    echo '<span class="active">' . $i . '</span>';
+                                } else {
+                                    echo '<a href="?tipo=' . $tipoReporte . '&pagina=' . $i . '">' . $i . '</a>';
+                                }
+                            }
+
+                            if ($fin < $totalPaginas) {
+                                if ($fin < $totalPaginas - 1) echo '<span>...</span>';
+                                echo '<a href="?tipo=' . $tipoReporte . '&pagina=' . $totalPaginas . '">' . $totalPaginas . '</a>';
+                            }
+                            ?>
+
+                            <?php if ($paginaActual < $totalPaginas): ?>
+                                <a href="?tipo=<?php echo $tipoReporte; ?>&pagina=<?php echo $paginaActual + 1; ?>">Siguiente →</a>
+                            <?php else: ?>
+                                <span class="disabled">Siguiente →</span>
+                            <?php endif; ?>
+                        </div>
+                        <div class="pagination-info">
+                            Página <?php echo $paginaActual; ?> de <?php echo $totalPaginas; ?> (Total: <?php echo $totalRegistros; ?> registros)
+                        </div>
+                        <?php endif; ?>
                     <?php endif; ?>
                 </div>
             </div>
@@ -659,6 +954,159 @@ switch ($tipoReporte) {
                                 <?php endforeach; ?>
                             </tbody>
                         </table>
+
+                        <?php if ($totalPaginas > 1): ?>
+                        <div class="pagination">
+                            <?php if ($paginaActual > 1): ?>
+                                <a href="?tipo=<?php echo $tipoReporte; ?>&id_vendedor=<?php echo $idVendedor; ?>&pagina=<?php echo $paginaActual - 1; ?>">← Anterior</a>
+                            <?php else: ?>
+                                <span class="disabled">← Anterior</span>
+                            <?php endif; ?>
+
+                            <?php
+                            $rango = 2;
+                            $inicio = max(1, $paginaActual - $rango);
+                            $fin = min($totalPaginas, $paginaActual + $rango);
+
+                            if ($inicio > 1) {
+                                echo '<a href="?tipo=' . $tipoReporte . '&id_vendedor=' . $idVendedor . '&pagina=1">1</a>';
+                                if ($inicio > 2) echo '<span>...</span>';
+                            }
+
+                            for ($i = $inicio; $i <= $fin; $i++) {
+                                if ($i == $paginaActual) {
+                                    echo '<span class="active">' . $i . '</span>';
+                                } else {
+                                    echo '<a href="?tipo=' . $tipoReporte . '&id_vendedor=' . $idVendedor . '&pagina=' . $i . '">' . $i . '</a>';
+                                }
+                            }
+
+                            if ($fin < $totalPaginas) {
+                                if ($fin < $totalPaginas - 1) echo '<span>...</span>';
+                                echo '<a href="?tipo=' . $tipoReporte . '&id_vendedor=' . $idVendedor . '&pagina=' . $totalPaginas . '">' . $totalPaginas . '</a>';
+                            }
+                            ?>
+
+                            <?php if ($paginaActual < $totalPaginas): ?>
+                                <a href="?tipo=<?php echo $tipoReporte; ?>&id_vendedor=<?php echo $idVendedor; ?>&pagina=<?php echo $paginaActual + 1; ?>">Siguiente →</a>
+                            <?php else: ?>
+                                <span class="disabled">Siguiente →</span>
+                            <?php endif; ?>
+                        </div>
+                        <div class="pagination-info">
+                            Página <?php echo $paginaActual; ?> de <?php echo $totalPaginas; ?> (Total: <?php echo $totalRegistros; ?> registros)
+                        </div>
+                        <?php endif; ?>
+                    <?php endif; ?>
+                </div>
+            </div>
+
+        <?php elseif ($tipoReporte == 'usuarios'): ?>
+            <div class="stats">
+                <div class="stat-card">
+                    <div class="stat-number"><?php echo count($datos); ?></div>
+                    <div class="stat-label">Total Usuarios</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number"><?php echo count(array_filter($datos, function($u) { return $u['Rol'] == 'admin'; })); ?></div>
+                    <div class="stat-label">Administradores</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number"><?php echo count(array_filter($datos, function($u) { return $u['Rol'] == 'supervisor'; })); ?></div>
+                    <div class="stat-label">Supervisores</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number"><?php echo count(array_filter($datos, function($u) { return $u['Rol'] == 'vendedor'; })); ?></div>
+                    <div class="stat-label">Vendedores</div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h2>Reporte de Usuarios</h2>
+                </div>
+                <div class="table-container">
+                    <?php if (empty($datos)): ?>
+                        <div class="no-data">No se encontraron datos para mostrar</div>
+                    <?php else: ?>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Usuario</th>
+                                    <th>Nombre</th>
+                                    <th>Rol</th>
+                                    <th>Vendedor Asociado</th>
+                                    <th>Sucursal</th>
+                                    <th>Estado</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($datos as $usuario): ?>
+                                <tr>
+                                    <td><?php echo htmlspecialchars($usuario['Usuario']); ?></td>
+                                    <td><?php echo htmlspecialchars($usuario['Nombre']); ?></td>
+                                    <td>
+                                        <span class="badge <?php
+                                            echo $usuario['Rol'] == 'admin' ? 'badge-success' :
+                                                ($usuario['Rol'] == 'supervisor' ? 'badge-info' : 'badge-secondary');
+                                        ?>">
+                                            <?php echo ucfirst($usuario['Rol']); ?>
+                                        </span>
+                                    </td>
+                                    <td><?php echo htmlspecialchars($usuario['NombreVendedor'] ?? 'N/A'); ?></td>
+                                    <td><?php echo htmlspecialchars($usuario['NombreSucursal'] ?? 'N/A'); ?></td>
+                                    <td>
+                                        <span class="badge <?php echo $usuario['Activo'] ? 'badge-success' : 'badge-secondary'; ?>">
+                                            <?php echo $usuario['Activo'] ? 'Activo' : 'Inactivo'; ?>
+                                        </span>
+                                    </td>
+                                </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+
+                        <?php if ($totalPaginas > 1): ?>
+                        <div class="pagination">
+                            <?php if ($paginaActual > 1): ?>
+                                <a href="?tipo=<?php echo $tipoReporte; ?>&pagina=<?php echo $paginaActual - 1; ?>">← Anterior</a>
+                            <?php else: ?>
+                                <span class="disabled">← Anterior</span>
+                            <?php endif; ?>
+
+                            <?php
+                            $rango = 2;
+                            $inicio = max(1, $paginaActual - $rango);
+                            $fin = min($totalPaginas, $paginaActual + $rango);
+
+                            if ($inicio > 1) {
+                                echo '<a href="?tipo=' . $tipoReporte . '&pagina=1">1</a>';
+                                if ($inicio > 2) echo '<span>...</span>';
+                            }
+
+                            for ($i = $inicio; $i <= $fin; $i++) {
+                                if ($i == $paginaActual) {
+                                    echo '<span class="active">' . $i . '</span>';
+                                } else {
+                                    echo '<a href="?tipo=' . $tipoReporte . '&pagina=' . $i . '">' . $i . '</a>';
+                                }
+                            }
+
+                            if ($fin < $totalPaginas) {
+                                if ($fin < $totalPaginas - 1) echo '<span>...</span>';
+                                echo '<a href="?tipo=' . $tipoReporte . '&pagina=' . $totalPaginas . '">' . $totalPaginas . '</a>';
+                            }
+                            ?>
+
+                            <?php if ($paginaActual < $totalPaginas): ?>
+                                <a href="?tipo=<?php echo $tipoReporte; ?>&pagina=<?php echo $paginaActual + 1; ?>">Siguiente →</a>
+                            <?php else: ?>
+                                <span class="disabled">Siguiente →</span>
+                            <?php endif; ?>
+                        </div>
+                        <div class="pagination-info">
+                            Página <?php echo $paginaActual; ?> de <?php echo $totalPaginas; ?> (Total: <?php echo $totalRegistros; ?> registros)
+                        </div>
+                        <?php endif; ?>
                     <?php endif; ?>
                 </div>
             </div>
