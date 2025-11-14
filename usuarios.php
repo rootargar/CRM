@@ -12,20 +12,21 @@ if ($_POST) {
         $nombre = trim($_POST['nombre']);
         $rol = $_POST['rol'];
         $idVendedor = ($_POST['idVendedor'] != '') ? $_POST['idVendedor'] : null;
-        
+        $idSucursal = ($_POST['idSucursal'] != '') ? $_POST['idSucursal'] : null;
+
         // Verificar si el usuario ya existe
         $sqlVerificar = "SELECT COUNT(*) as existe FROM UsuariosCRM WHERE Usuario = ?";
         $stmt = sqlsrv_prepare($conn, $sqlVerificar, array($usuario));
         sqlsrv_execute($stmt);
         $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
-        
+
         if ($row['existe'] == 0) {
             // Insertar nuevo usuario
-            $sqlInsert = "INSERT INTO UsuariosCRM (Usuario, Clave, Nombre, Rol, IdVendedor, Activo) 
-                         VALUES (?, ?, ?, ?, ?, 1)";
-            $params = array($usuario, $clave, $nombre, $rol, $idVendedor);
+            $sqlInsert = "INSERT INTO UsuariosCRM (Usuario, Clave, Nombre, Rol, IdVendedor, IdSucursal, Activo)
+                         VALUES (?, ?, ?, ?, ?, ?, 1)";
+            $params = array($usuario, $clave, $nombre, $rol, $idVendedor, $idSucursal);
             $stmt = sqlsrv_prepare($conn, $sqlInsert, $params);
-            
+
             if (sqlsrv_execute($stmt)) {
                 $mensaje = "Usuario agregado correctamente";
                 $tipoMensaje = "success";
@@ -44,21 +45,22 @@ if ($_POST) {
         $nombre = trim($_POST['nombre']);
         $rol = $_POST['rol'];
         $idVendedor = ($_POST['idVendedor'] != '') ? $_POST['idVendedor'] : null;
-        
+        $idSucursal = ($_POST['idSucursal'] != '') ? $_POST['idSucursal'] : null;
+
         // Verificar si el usuario ya existe (excluyendo el actual)
-        $sqlVerificar = "SELECT COUNT(*) as existe FROM UsuariosCRM 
+        $sqlVerificar = "SELECT COUNT(*) as existe FROM UsuariosCRM
                         WHERE Usuario = ? AND IdUsuario != ?";
         $stmt = sqlsrv_prepare($conn, $sqlVerificar, array($usuario, $idUsuario));
         sqlsrv_execute($stmt);
         $row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC);
-        
+
         if ($row['existe'] == 0) {
             // Actualizar usuario
-            $sqlUpdate = "UPDATE UsuariosCRM SET Usuario = ?, Nombre = ?, Rol = ?, IdVendedor = ? 
+            $sqlUpdate = "UPDATE UsuariosCRM SET Usuario = ?, Nombre = ?, Rol = ?, IdVendedor = ?, IdSucursal = ?
                          WHERE IdUsuario = ?";
-            $params = array($usuario, $nombre, $rol, $idVendedor, $idUsuario);
+            $params = array($usuario, $nombre, $rol, $idVendedor, $idSucursal, $idUsuario);
             $stmt = sqlsrv_prepare($conn, $sqlUpdate, $params);
-            
+
             if (sqlsrv_execute($stmt)) {
                 $mensaje = "Usuario actualizado correctamente";
                 $tipoMensaje = "success";
@@ -121,11 +123,17 @@ if ($mostrarFormulario == 'editar' && $idUsuarioEditar > 0) {
 $sqlVendedores = "SELECT IdVendedor, Nombre FROM VendedoresCRM WHERE Activo = 1 ORDER BY Nombre";
 $stmtVendedores = sqlsrv_query($conn, $sqlVendedores);
 
+// Obtener lista de sucursales para el select
+$sqlSucursales = "SELECT IdSucursal, Nombre FROM SucursalesCRM WHERE Activo = 1 ORDER BY IdSucursal";
+$stmtSucursales = sqlsrv_query($conn, $sqlSucursales);
+
 // Obtener lista de usuarios
-$sqlUsuarios = "SELECT u.IdUsuario, u.Usuario, u.Nombre, u.Rol, u.Activo, u.IdVendedor,
-                       v.Nombre as NombreVendedor
+$sqlUsuarios = "SELECT u.IdUsuario, u.Usuario, u.Nombre, u.Rol, u.Activo, u.IdVendedor, u.IdSucursal,
+                       v.Nombre as NombreVendedor,
+                       s.Nombre as NombreSucursal
                 FROM UsuariosCRM u
                 LEFT JOIN VendedoresCRM v ON u.IdVendedor = v.IdVendedor
+                LEFT JOIN SucursalesCRM s ON u.IdSucursal = s.IdSucursal
                 ORDER BY u.Nombre";
 $stmtUsuarios = sqlsrv_query($conn, $sqlUsuarios);
 ?>
@@ -361,22 +369,40 @@ $stmtUsuarios = sqlsrv_query($conn, $sqlUsuarios);
                         </div>
                     </div>
                     
-                    <div class="form-group">
-                        <label for="idVendedor">Asociar con Vendedor (opcional):</label>
-                        <select name="idVendedor" id="idVendedor">
-                            <option value="">-- Sin asociar --</option>
-                            <?php 
-                            // Reset vendedores query
-                            $stmtVendedores = sqlsrv_query($conn, $sqlVendedores);
-                            while ($vendedor = sqlsrv_fetch_array($stmtVendedores, SQLSRV_FETCH_ASSOC)): 
-                            ?>
-                                <option value="<?php echo $vendedor['IdVendedor']; ?>">
-                                    <?php echo htmlspecialchars($vendedor['Nombre']); ?>
-                                </option>
-                            <?php endwhile; ?>
-                        </select>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="idVendedor">Asociar con Vendedor (opcional):</label>
+                            <select name="idVendedor" id="idVendedor">
+                                <option value="">-- Sin asociar --</option>
+                                <?php
+                                // Reset vendedores query
+                                $stmtVendedores = sqlsrv_query($conn, $sqlVendedores);
+                                while ($vendedor = sqlsrv_fetch_array($stmtVendedores, SQLSRV_FETCH_ASSOC)):
+                                ?>
+                                    <option value="<?php echo $vendedor['IdVendedor']; ?>">
+                                        <?php echo htmlspecialchars($vendedor['Nombre']); ?>
+                                    </option>
+                                <?php endwhile; ?>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="idSucursal">Asignar Sucursal (opcional):</label>
+                            <select name="idSucursal" id="idSucursal">
+                                <option value="">-- Todas las sucursales --</option>
+                                <?php
+                                // Reset sucursales query
+                                $stmtSucursales = sqlsrv_query($conn, $sqlSucursales);
+                                while ($sucursal = sqlsrv_fetch_array($stmtSucursales, SQLSRV_FETCH_ASSOC)):
+                                ?>
+                                    <option value="<?php echo $sucursal['IdSucursal']; ?>">
+                                        <?php echo htmlspecialchars($sucursal['Nombre']); ?>
+                                    </option>
+                                <?php endwhile; ?>
+                            </select>
+                        </div>
                     </div>
-                    
+
                     <button type="submit" class="btn btn-success">Guardar Usuario</button>
                     <a href="?accion=listar" class="btn btn-secondary">Cancelar</a>
                 </form>
@@ -413,17 +439,17 @@ $stmtUsuarios = sqlsrv_query($conn, $sqlUsuarios);
                                 <option value="supervisor" <?php echo ($usuarioEditar['Rol'] == 'supervisor') ? 'selected' : ''; ?>>Supervisor</option>
                             </select>
                         </div>
-                        
+
                         <div class="form-group">
                             <label for="idVendedor">Asociar con Vendedor:</label>
                             <select name="idVendedor" id="idVendedor">
                                 <option value="">-- Sin asociar --</option>
-                                <?php 
+                                <?php
                                 // Reset vendedores query
                                 $stmtVendedores = sqlsrv_query($conn, $sqlVendedores);
-                                while ($vendedor = sqlsrv_fetch_array($stmtVendedores, SQLSRV_FETCH_ASSOC)): 
+                                while ($vendedor = sqlsrv_fetch_array($stmtVendedores, SQLSRV_FETCH_ASSOC)):
                                 ?>
-                                    <option value="<?php echo $vendedor['IdVendedor']; ?>" 
+                                    <option value="<?php echo $vendedor['IdVendedor']; ?>"
                                             <?php echo ($usuarioEditar['IdVendedor'] == $vendedor['IdVendedor']) ? 'selected' : ''; ?>>
                                         <?php echo htmlspecialchars($vendedor['Nombre']); ?>
                                     </option>
@@ -431,7 +457,24 @@ $stmtUsuarios = sqlsrv_query($conn, $sqlUsuarios);
                             </select>
                         </div>
                     </div>
-                    
+
+                    <div class="form-group">
+                        <label for="idSucursal">Asignar Sucursal:</label>
+                        <select name="idSucursal" id="idSucursal">
+                            <option value="">-- Todas las sucursales --</option>
+                            <?php
+                            // Reset sucursales query
+                            $stmtSucursales = sqlsrv_query($conn, $sqlSucursales);
+                            while ($sucursal = sqlsrv_fetch_array($stmtSucursales, SQLSRV_FETCH_ASSOC)):
+                            ?>
+                                <option value="<?php echo $sucursal['IdSucursal']; ?>"
+                                        <?php echo ($usuarioEditar['IdSucursal'] == $sucursal['IdSucursal']) ? 'selected' : ''; ?>>
+                                    <?php echo htmlspecialchars($sucursal['Nombre']); ?>
+                                </option>
+                            <?php endwhile; ?>
+                        </select>
+                    </div>
+
                     <button type="submit" class="btn btn-success">Actualizar Usuario</button>
                     <a href="?accion=listar" class="btn btn-secondary">Cancelar</a>
                 </form>
@@ -450,6 +493,7 @@ $stmtUsuarios = sqlsrv_query($conn, $sqlUsuarios);
                             <th>Nombre</th>
                             <th>Rol</th>
                             <th>Vendedor Asociado</th>
+                            <th>Sucursal</th>
                             <th>Estado</th>
                             <th>Acciones</th>
                         </tr>
@@ -463,19 +507,20 @@ $stmtUsuarios = sqlsrv_query($conn, $sqlUsuarios);
                                     <td><?php echo htmlspecialchars($usuario['Nombre']); ?></td>
                                     <td><?php echo ucfirst($usuario['Rol']); ?></td>
                                     <td><?php echo $usuario['NombreVendedor'] ? htmlspecialchars($usuario['NombreVendedor']) : '-'; ?></td>
+                                    <td><?php echo $usuario['NombreSucursal'] ? htmlspecialchars($usuario['NombreSucursal']) : '<em style="color:#999;">Todas</em>'; ?></td>
                                     <td>
                                         <span class="estado <?php echo $usuario['Activo'] ? 'activo' : 'inactivo'; ?>">
                                             <?php echo $usuario['Activo'] ? 'Activo' : 'Inactivo'; ?>
                                         </span>
                                     </td>
                                     <td>
-                                        <a href="?accion=editar&id=<?php echo $usuario['IdUsuario']; ?>" 
+                                        <a href="?accion=editar&id=<?php echo $usuario['IdUsuario']; ?>"
                                            class="btn btn-warning btn-small">Editar</a>
-                                        
-                                        <button onclick="cambiarClave(<?php echo $usuario['IdUsuario']; ?>)" 
+
+                                        <button onclick="cambiarClave(<?php echo $usuario['IdUsuario']; ?>)"
                                                 class="btn btn-primary btn-small">Cambiar Clave</button>
-                                        
-                                        <form method="POST" style="display: inline;" 
+
+                                        <form method="POST" style="display: inline;"
                                               onsubmit="return confirm('¿Está seguro de cambiar el estado?');">
                                             <input type="hidden" name="accion" value="cambiar_estado">
                                             <input type="hidden" name="idUsuario" value="<?php echo $usuario['IdUsuario']; ?>">
@@ -489,7 +534,7 @@ $stmtUsuarios = sqlsrv_query($conn, $sqlUsuarios);
                             <?php endwhile; ?>
                         <?php else: ?>
                             <tr>
-                                <td colspan="7" style="text-align: center; color: #666;">
+                                <td colspan="8" style="text-align: center; color: #666;">
                                     No hay usuarios registrados
                                 </td>
                             </tr>

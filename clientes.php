@@ -175,26 +175,52 @@ switch($accion) {
         break;
 }
 
-// Obtener lista de clientes
+// Obtener lista de clientes (filtrado por sucursal si aplica)
 $busqueda = $_GET['buscar'] ?? '';
 $filtro_activo = $_GET['filtro'] ?? '1';
 
-$sql = "SELECT IdCliente, Nombre, Telefono, Email, Activo FROM ClientesCRM WHERE 1=1";
-$params = array();
+// Si el usuario tiene sucursal asignada y no es vendedor, filtrar por sucursal de vendedores
+if (!empty($datosUsuario['id_sucursal']) && esAdmin()) {
+    $sql = "SELECT DISTINCT c.IdCliente, c.Nombre, c.Telefono, c.Email, c.Activo
+            FROM ClientesCRM c
+            LEFT JOIN ClientesVendedoresCRM cv ON c.IdCliente = cv.IdCliente
+            LEFT JOIN VendedoresCRM v ON cv.IdVendedor = v.IdVendedor
+            WHERE 1=1 AND (v.IdSucursal = ? OR v.IdSucursal IS NULL OR cv.IdVendedor IS NULL)";
+    $params = array($datosUsuario['id_sucursal']);
+} elseif (esVendedor() && !empty($datosUsuario['id_vendedor'])) {
+    // Vendedor: solo ver clientes asignados a él
+    $sql = "SELECT DISTINCT c.IdCliente, c.Nombre, c.Telefono, c.Email, c.Activo
+            FROM ClientesCRM c
+            INNER JOIN ClientesVendedoresCRM cv ON c.IdCliente = cv.IdCliente
+            WHERE cv.IdVendedor = ? AND cv.Activo = 1";
+    $params = array($datosUsuario['id_vendedor']);
+} else {
+    // Admin sin sucursal: ver todos los clientes
+    $sql = "SELECT IdCliente, Nombre, Telefono, Email, Activo FROM ClientesCRM WHERE 1=1";
+    $params = array();
+}
 
 if (!empty($busqueda)) {
-    $sql .= " AND (Nombre LIKE ? OR Email LIKE ? OR Telefono LIKE ?)";
+    $sql .= " AND (c.Nombre LIKE ? OR c.Email LIKE ? OR c.Telefono LIKE ?)";
     $params[] = "%$busqueda%";
     $params[] = "%$busqueda%";
     $params[] = "%$busqueda%";
 }
 
 if ($filtro_activo !== 'todos') {
-    $sql .= " AND Activo = ?";
+    if (!empty($datosUsuario['id_sucursal']) || esVendedor()) {
+        $sql .= " AND c.Activo = ?";
+    } else {
+        $sql .= " AND Activo = ?";
+    }
     $params[] = (int)$filtro_activo;
 }
 
-$sql .= " ORDER BY Nombre";
+if (!empty($datosUsuario['id_sucursal']) || esVendedor()) {
+    $sql .= " ORDER BY c.Nombre";
+} else {
+    $sql .= " ORDER BY Nombre";
+}
 
 $stmt = sqlsrv_prepare($conn, $sql, $params);
 if ($stmt === false) {
