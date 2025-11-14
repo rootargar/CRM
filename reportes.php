@@ -12,9 +12,17 @@ $fechaFin = $_GET['fecha_fin'] ?? date('Y-m-d');
 $idVendedor = $_GET['id_vendedor'] ?? '';
 
 // Función para obtener vendedores activos
-function obtenerVendedores($conn) {
-    $sql = "SELECT IdVendedor, Nombre FROM VendedoresCRM WHERE Activo = 1 ORDER BY Nombre";
-    $stmt = sqlsrv_query($conn, $sql);
+function obtenerVendedores($conn, $idSucursal = null) {
+    $sql = "SELECT IdVendedor, Nombre FROM VendedoresCRM WHERE Activo = 1";
+    $params = [];
+
+    if ($idSucursal !== null) {
+        $sql .= " AND IdSucursal = ?";
+        $params[] = $idSucursal;
+    }
+
+    $sql .= " ORDER BY Nombre";
+    $stmt = sqlsrv_query($conn, $sql, $params);
     $vendedores = [];
     if ($stmt !== false) {
         while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
@@ -25,16 +33,22 @@ function obtenerVendedores($conn) {
 }
 
 // Función para reporte de clientes
-function reporteClientes($conn, $fechaInicio, $fechaFin, $idVendedor = '') {
+function reporteClientes($conn, $fechaInicio, $fechaFin, $idVendedor = '', $idSucursal = null) {
     $whereVendedor = '';
+    $whereSucursal = '';
     $params = [$fechaInicio, $fechaFin];
-    
+
     if (!empty($idVendedor)) {
         $whereVendedor = "AND cv.IdVendedor = ?";
         $params[] = $idVendedor;
     }
-    
-    $sql = "SELECT 
+
+    if ($idSucursal !== null) {
+        $whereSucursal = "AND c.IdSucursal = ?";
+        $params[] = $idSucursal;
+    }
+
+    $sql = "SELECT
                 c.IdCliente,
                 c.Nombre,
                 c.Telefono,
@@ -46,12 +60,12 @@ function reporteClientes($conn, $fechaInicio, $fechaFin, $idVendedor = '') {
             FROM ClientesCRM c
             LEFT JOIN ClientesVendedoresCRM cv ON c.IdCliente = cv.IdCliente AND cv.Activo = 1
             LEFT JOIN VendedoresCRM v ON cv.IdVendedor = v.IdVendedor
-            LEFT JOIN SeguimientosCRM s ON c.IdCliente = s.IdCliente 
+            LEFT JOIN SeguimientosCRM s ON c.IdCliente = s.IdCliente
                 AND s.Fecha BETWEEN ? AND DATEADD(day, 1, ?)
-            WHERE c.Activo = 1 $whereVendedor
+            WHERE c.Activo = 1 $whereVendedor $whereSucursal
             GROUP BY c.IdCliente, c.Nombre, c.Telefono, c.Email, v.Nombre, cv.FechaAsignacion
             ORDER BY c.Nombre";
-    
+
     $stmt = sqlsrv_query($conn, $sql, $params);
     $resultados = [];
     if ($stmt !== false) {
@@ -69,8 +83,16 @@ function reporteClientes($conn, $fechaInicio, $fechaFin, $idVendedor = '') {
 }
 
 // Función para reporte de vendedores
-function reporteVendedores($conn, $fechaInicio, $fechaFin) {
-    $sql = "SELECT 
+function reporteVendedores($conn, $fechaInicio, $fechaFin, $idSucursal = null) {
+    $whereSucursal = '';
+    $params = [$fechaInicio, $fechaFin];
+
+    if ($idSucursal !== null) {
+        $whereSucursal = "AND v.IdSucursal = ?";
+        $params[] = $idSucursal;
+    }
+
+    $sql = "SELECT
                 v.IdVendedor,
                 v.Nombre,
                 COUNT(DISTINCT cv.IdCliente) as TotalClientes,
@@ -80,13 +102,13 @@ function reporteVendedores($conn, $fechaInicio, $fechaFin) {
                 SUM(CASE WHEN s.Estado = 'Completado' THEN 1 ELSE 0 END) as SeguimientosCompletados
             FROM VendedoresCRM v
             LEFT JOIN ClientesVendedoresCRM cv ON v.IdVendedor = cv.IdVendedor AND cv.Activo = 1
-            LEFT JOIN SeguimientosCRM s ON v.IdVendedor = s.IdVendedor 
+            LEFT JOIN SeguimientosCRM s ON v.IdVendedor = s.IdVendedor
                 AND s.Fecha BETWEEN ? AND DATEADD(day, 1, ?)
-            WHERE v.Activo = 1
+            WHERE v.Activo = 1 $whereSucursal
             GROUP BY v.IdVendedor, v.Nombre
             ORDER BY v.Nombre";
-    
-    $stmt = sqlsrv_query($conn, $sql, [$fechaInicio, $fechaFin]);
+
+    $stmt = sqlsrv_query($conn, $sql, $params);
     $resultados = [];
     if ($stmt !== false) {
         while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
@@ -97,16 +119,22 @@ function reporteVendedores($conn, $fechaInicio, $fechaFin) {
 }
 
 // Función para reporte de seguimientos
-function reporteSeguimientos($conn, $fechaInicio, $fechaFin, $idVendedor = '') {
+function reporteSeguimientos($conn, $fechaInicio, $fechaFin, $idVendedor = '', $idSucursal = null) {
     $whereVendedor = '';
+    $whereSucursal = '';
     $params = [$fechaInicio, $fechaFin];
-    
+
     if (!empty($idVendedor)) {
         $whereVendedor = "AND s.IdVendedor = ?";
         $params[] = $idVendedor;
     }
-    
-    $sql = "SELECT 
+
+    if ($idSucursal !== null) {
+        $whereSucursal = "AND c.IdSucursal = ?";
+        $params[] = $idSucursal;
+    }
+
+    $sql = "SELECT
                 s.IdSeguimiento,
                 c.Nombre as NombreCliente,
                 v.Nombre as NombreVendedor,
@@ -119,9 +147,9 @@ function reporteSeguimientos($conn, $fechaInicio, $fechaFin, $idVendedor = '') {
             FROM SeguimientosCRM s
             INNER JOIN ClientesCRM c ON s.IdCliente = c.IdCliente
             INNER JOIN VendedoresCRM v ON s.IdVendedor = v.IdVendedor
-            WHERE s.Fecha BETWEEN ? AND DATEADD(day, 1, ?) $whereVendedor
+            WHERE s.Fecha BETWEEN ? AND DATEADD(day, 1, ?) $whereVendedor $whereSucursal
             ORDER BY s.Fecha DESC";
-    
+
     $stmt = sqlsrv_query($conn, $sql, $params);
     $resultados = [];
     if ($stmt !== false) {
@@ -136,19 +164,26 @@ function reporteSeguimientos($conn, $fechaInicio, $fechaFin, $idVendedor = '') {
     return $resultados;
 }
 
+// Determinar el filtro de sucursal según el rol
+$idSucursalFiltro = null;
+if (esSupervisor()) {
+    // Supervisores solo ven datos de su sucursal
+    $idSucursalFiltro = $datosUsuario['id_sucursal'];
+}
+
 // Obtener datos según el tipo de reporte
-$vendedores = obtenerVendedores($conn);
+$vendedores = obtenerVendedores($conn, $idSucursalFiltro);
 $datos = [];
 
 switch ($tipoReporte) {
     case 'clientes':
-        $datos = reporteClientes($conn, $fechaInicio, $fechaFin, $idVendedor);
+        $datos = reporteClientes($conn, $fechaInicio, $fechaFin, $idVendedor, $idSucursalFiltro);
         break;
     case 'vendedores':
-        $datos = reporteVendedores($conn, $fechaInicio, $fechaFin);
+        $datos = reporteVendedores($conn, $fechaInicio, $fechaFin, $idSucursalFiltro);
         break;
     case 'seguimientos':
-        $datos = reporteSeguimientos($conn, $fechaInicio, $fechaFin, $idVendedor);
+        $datos = reporteSeguimientos($conn, $fechaInicio, $fechaFin, $idVendedor, $idSucursalFiltro);
         break;
 }
 ?>
@@ -407,8 +442,11 @@ switch ($tipoReporte) {
         <a href="dashboard.php" class="back-link">← Volver al inicio</a>
         <h1>Reportes del Sistema</h1>
         <div class="user-info">
-            Usuario: <?php echo htmlspecialchars($datosUsuario['nombre']); ?> | 
+            Usuario: <?php echo htmlspecialchars($datosUsuario['nombre']); ?> |
             Rol: <?php echo htmlspecialchars($datosUsuario['rol']); ?>
+            <?php if (esSupervisor() && $datosUsuario['sucursal_nombre']): ?>
+                | Sucursal: <?php echo htmlspecialchars($datosUsuario['sucursal_nombre']); ?>
+            <?php endif; ?>
         </div>
     </div>
 

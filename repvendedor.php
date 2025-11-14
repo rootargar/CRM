@@ -10,29 +10,61 @@ $tipoReporte = $_GET['tipo'] ?? 'clientes';
 $fechaInicio = $_GET['fecha_inicio'] ?? date('Y-m-01');
 $fechaFin = $_GET['fecha_fin'] ?? date('Y-m-d');
 
-// Obtener ID del vendedor logueado
-$idVendedorLogueado = $datosUsuario['id_vendedor']; // Ajusta según tu estructura de datos
+// Determinar el filtro según el rol
+$idVendedorLogueado = null;
+$idSucursalFiltro = null;
+$esModoVendedor = false;
 
-// Función para reporte de clientes del vendedor
-function reporteClientesVendedor($conn, $fechaInicio, $fechaFin, $idVendedor) {
-    $sql = "SELECT 
+if (esVendedor()) {
+    // Vendedores ven solo sus datos
+    $idVendedorLogueado = $datosUsuario['id_vendedor'];
+    $esModoVendedor = true;
+} elseif (esSupervisor()) {
+    // Supervisores ven datos de su sucursal
+    $idSucursalFiltro = $datosUsuario['id_sucursal'];
+    $esModoVendedor = false;
+} else {
+    // Admins ven todo (opcional, puedes redirigir a reportes.php si prefieres)
+    $esModoVendedor = false;
+}
+
+// Función para reporte de clientes del vendedor o sucursal
+function reporteClientesVendedor($conn, $fechaInicio, $fechaFin, $idVendedor = null, $idSucursal = null) {
+    $whereVendedor = '';
+    $whereSucursal = '';
+    $params = [$fechaInicio, $fechaFin];
+
+    if ($idVendedor !== null) {
+        $whereVendedor = "AND cv.IdVendedor = ?";
+        $params[] = $idVendedor;
+        $params[] = $idVendedor;
+    }
+
+    if ($idSucursal !== null) {
+        $whereSucursal = "AND c.IdSucursal = ?";
+        $params[] = $idSucursal;
+    }
+
+    $sql = "SELECT
                 c.IdCliente,
                 c.Nombre,
                 c.Telefono,
                 c.Email,
                 cv.FechaAsignacion,
+                v.Nombre as NombreVendedor,
                 COUNT(s.IdSeguimiento) as TotalSeguimientos,
                 MAX(s.Fecha) as UltimoSeguimiento
             FROM ClientesCRM c
             INNER JOIN ClientesVendedoresCRM cv ON c.IdCliente = cv.IdCliente AND cv.Activo = 1
-            LEFT JOIN SeguimientosCRM s ON c.IdCliente = s.IdCliente 
+            LEFT JOIN VendedoresCRM v ON cv.IdVendedor = v.IdVendedor
+            LEFT JOIN SeguimientosCRM s ON c.IdCliente = s.IdCliente
                 AND s.Fecha BETWEEN ? AND DATEADD(day, 1, ?)
-                AND s.IdVendedor = ?
-            WHERE c.Activo = 1 AND cv.IdVendedor = ?
-            GROUP BY c.IdCliente, c.Nombre, c.Telefono, c.Email, cv.FechaAsignacion
+                " . ($idVendedor !== null ? "AND s.IdVendedor = ?" : "") . "
+            WHERE c.Activo = 1 $whereVendedor $whereSucursal
+            GROUP BY c.IdCliente, c.Nombre, c.Telefono, c.Email, cv.FechaAsignacion, v.Nombre
             ORDER BY c.Nombre";
-    
-    $stmt = sqlsrv_query($conn, $sql, [$fechaInicio, $fechaFin, $idVendedor, $idVendedor]);
+
+    $stmt = sqlsrv_query($conn, $sql, $params);
     $resultados = [];
     if ($stmt !== false) {
         while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
@@ -48,11 +80,26 @@ function reporteClientesVendedor($conn, $fechaInicio, $fechaFin, $idVendedor) {
     return $resultados;
 }
 
-// Función para reporte de seguimientos del vendedor
-function reporteSeguimientosVendedor($conn, $fechaInicio, $fechaFin, $idVendedor) {
-    $sql = "SELECT 
+// Función para reporte de seguimientos del vendedor o sucursal
+function reporteSeguimientosVendedor($conn, $fechaInicio, $fechaFin, $idVendedor = null, $idSucursal = null) {
+    $whereVendedor = '';
+    $whereSucursal = '';
+    $params = [$fechaInicio, $fechaFin];
+
+    if ($idVendedor !== null) {
+        $whereVendedor = "AND s.IdVendedor = ?";
+        $params[] = $idVendedor;
+    }
+
+    if ($idSucursal !== null) {
+        $whereSucursal = "AND c.IdSucursal = ?";
+        $params[] = $idSucursal;
+    }
+
+    $sql = "SELECT
                 s.IdSeguimiento,
                 c.Nombre as NombreCliente,
+                v.Nombre as NombreVendedor,
                 s.Tipo,
                 s.Fecha,
                 s.Motivo,
@@ -61,11 +108,12 @@ function reporteSeguimientosVendedor($conn, $fechaInicio, $fechaFin, $idVendedor
                 s.ProximaAccion
             FROM SeguimientosCRM s
             INNER JOIN ClientesCRM c ON s.IdCliente = c.IdCliente
-            WHERE s.Fecha BETWEEN ? AND DATEADD(day, 1, ?) 
-                AND s.IdVendedor = ?
+            LEFT JOIN VendedoresCRM v ON s.IdVendedor = v.IdVendedor
+            WHERE s.Fecha BETWEEN ? AND DATEADD(day, 1, ?)
+                $whereVendedor $whereSucursal
             ORDER BY s.Fecha DESC";
-    
-    $stmt = sqlsrv_query($conn, $sql, [$fechaInicio, $fechaFin, $idVendedor]);
+
+    $stmt = sqlsrv_query($conn, $sql, $params);
     $resultados = [];
     if ($stmt !== false) {
         while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
@@ -84,10 +132,10 @@ $datos = [];
 
 switch ($tipoReporte) {
     case 'clientes':
-        $datos = reporteClientesVendedor($conn, $fechaInicio, $fechaFin, $idVendedorLogueado);
+        $datos = reporteClientesVendedor($conn, $fechaInicio, $fechaFin, $idVendedorLogueado, $idSucursalFiltro);
         break;
     case 'seguimientos':
-        $datos = reporteSeguimientosVendedor($conn, $fechaInicio, $fechaFin, $idVendedorLogueado);
+        $datos = reporteSeguimientosVendedor($conn, $fechaInicio, $fechaFin, $idVendedorLogueado, $idSucursalFiltro);
         break;
 }
 ?>
@@ -344,10 +392,13 @@ switch ($tipoReporte) {
 <body>
     <div class="header">
         <a href="dashboard.php" class="back-link">← Volver al inicio</a>
-        <h1>Mis Reportes</h1>
+        <h1><?php echo $esModoVendedor ? 'Mis Reportes' : 'Reportes de Sucursal'; ?></h1>
         <div class="user-info">
-            Vendedor: <?php echo htmlspecialchars($datosUsuario['nombre']); ?> | 
+            Usuario: <?php echo htmlspecialchars($datosUsuario['nombre']); ?> |
             Rol: <?php echo htmlspecialchars($datosUsuario['rol']); ?>
+            <?php if (esSupervisor() && $datosUsuario['sucursal_nombre']): ?>
+                | Sucursal: <?php echo htmlspecialchars($datosUsuario['sucursal_nombre']); ?>
+            <?php endif; ?>
         </div>
     </div>
 
@@ -360,8 +411,8 @@ switch ($tipoReporte) {
                         <div class="form-group">
                             <label for="tipo">Tipo de Reporte</label>
                             <select name="tipo" id="tipo" onchange="this.form.submit()">
-                                <option value="clientes" <?php echo $tipoReporte == 'clientes' ? 'selected' : ''; ?>>Mis Clientes</option>
-                                <option value="seguimientos" <?php echo $tipoReporte == 'seguimientos' ? 'selected' : ''; ?>>Mis Seguimientos</option>
+                                <option value="clientes" <?php echo $tipoReporte == 'clientes' ? 'selected' : ''; ?>><?php echo $esModoVendedor ? 'Mis Clientes' : 'Clientes'; ?></option>
+                                <option value="seguimientos" <?php echo $tipoReporte == 'seguimientos' ? 'selected' : ''; ?>><?php echo $esModoVendedor ? 'Mis Seguimientos' : 'Seguimientos'; ?></option>
                             </select>
                         </div>
 
@@ -386,7 +437,7 @@ switch ($tipoReporte) {
             <div class="stats">
                 <div class="stat-card">
                     <div class="stat-number"><?php echo count($datos); ?></div>
-                    <div class="stat-label">Mis Clientes</div>
+                    <div class="stat-label"><?php echo $esModoVendedor ? 'Mis Clientes' : 'Clientes'; ?></div>
                 </div>
                 <div class="stat-card">
                     <div class="stat-number"><?php echo array_sum(array_column($datos, 'TotalSeguimientos')); ?></div>
@@ -396,7 +447,7 @@ switch ($tipoReporte) {
 
             <div class="card">
                 <div class="card-header">
-                    <h2>Reporte de Mis Clientes</h2>
+                    <h2>Reporte de <?php echo $esModoVendedor ? 'Mis Clientes' : 'Clientes'; ?></h2>
                 </div>
                 <div class="table-container">
                     <?php if (empty($datos)): ?>
@@ -408,6 +459,9 @@ switch ($tipoReporte) {
                                     <th>Cliente</th>
                                     <th>Teléfono</th>
                                     <th>Email</th>
+                                    <?php if (!$esModoVendedor): ?>
+                                    <th>Vendedor</th>
+                                    <?php endif; ?>
                                     <th>Fecha Asignación</th>
                                     <th>Seguimientos</th>
                                     <th>Último Seguimiento</th>
@@ -419,6 +473,9 @@ switch ($tipoReporte) {
                                     <td><?php echo htmlspecialchars($cliente['Nombre']); ?></td>
                                     <td><?php echo htmlspecialchars($cliente['Telefono'] ?? 'N/A'); ?></td>
                                     <td><?php echo htmlspecialchars($cliente['Email'] ?? 'N/A'); ?></td>
+                                    <?php if (!$esModoVendedor): ?>
+                                    <td><?php echo htmlspecialchars($cliente['NombreVendedor'] ?? 'Sin asignar'); ?></td>
+                                    <?php endif; ?>
                                     <td><?php echo $cliente['FechaAsignacion'] ?? 'N/A'; ?></td>
                                     <td><span class="badge badge-info"><?php echo $cliente['TotalSeguimientos']; ?></span></td>
                                     <td><?php echo $cliente['UltimoSeguimiento'] ?? 'Sin seguimientos'; ?></td>
@@ -452,7 +509,7 @@ switch ($tipoReporte) {
 
             <div class="card">
                 <div class="card-header">
-                    <h2>Reporte de Mis Seguimientos</h2>
+                    <h2>Reporte de <?php echo $esModoVendedor ? 'Mis Seguimientos' : 'Seguimientos'; ?></h2>
                 </div>
                 <div class="table-container">
                     <?php if (empty($datos)): ?>
@@ -463,6 +520,9 @@ switch ($tipoReporte) {
                                 <tr>
                                     <th>Fecha</th>
                                     <th>Cliente</th>
+                                    <?php if (!$esModoVendedor): ?>
+                                    <th>Vendedor</th>
+                                    <?php endif; ?>
                                     <th>Tipo</th>
                                     <th>Motivo</th>
                                     <th>Resultado</th>
@@ -475,6 +535,9 @@ switch ($tipoReporte) {
                                 <tr>
                                     <td><?php echo $seguimiento['Fecha']; ?></td>
                                     <td><?php echo htmlspecialchars($seguimiento['NombreCliente']); ?></td>
+                                    <?php if (!$esModoVendedor): ?>
+                                    <td><?php echo htmlspecialchars($seguimiento['NombreVendedor'] ?? 'N/A'); ?></td>
+                                    <?php endif; ?>
                                     <td>
                                         <span class="badge <?php echo $seguimiento['Tipo'] == 'Visita' ? 'badge-warning' : 'badge-info'; ?>">
                                             <?php echo $seguimiento['Tipo']; ?>

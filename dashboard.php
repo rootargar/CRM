@@ -12,59 +12,91 @@ $estadisticas = array();
 if (esVendedor()) {
     // Estadísticas para vendedor
     $idVendedor = $usuario['id_vendedor'];
-    
+
     // Total de clientes asignados
-    $sql = "SELECT COUNT(*) as total FROM ClientesVendedoresCRM cv 
-            INNER JOIN ClientesCRM c ON cv.IdCliente = c.IdCliente 
+    $sql = "SELECT COUNT(*) as total FROM ClientesVendedoresCRM cv
+            INNER JOIN ClientesCRM c ON cv.IdCliente = c.IdCliente
             WHERE cv.IdVendedor = ? AND cv.Activo = 1 AND c.Activo = 1";
     $stmt = sqlsrv_query($conn, $sql, array($idVendedor));
     $estadisticas['clientes'] = $stmt ? sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)['total'] : 0;
     if ($stmt) sqlsrv_free_stmt($stmt);
-    
+
     // Seguimientos del mes actual
-    $sql = "SELECT COUNT(*) as total FROM SeguimientosCRM 
+    $sql = "SELECT COUNT(*) as total FROM SeguimientosCRM
             WHERE IdVendedor = ? AND MONTH(Fecha) = MONTH(GETDATE()) AND YEAR(Fecha) = YEAR(GETDATE())";
     $stmt = sqlsrv_query($conn, $sql, array($idVendedor));
     $estadisticas['seguimientos_mes'] = $stmt ? sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)['total'] : 0;
     if ($stmt) sqlsrv_free_stmt($stmt);
-    
+
     // Seguimientos pendientes
-    $sql = "SELECT COUNT(*) as total FROM SeguimientosCRM 
+    $sql = "SELECT COUNT(*) as total FROM SeguimientosCRM
             WHERE IdVendedor = ? AND Estado = 'Pendiente'";
     $stmt = sqlsrv_query($conn, $sql, array($idVendedor));
     $estadisticas['pendientes'] = $stmt ? sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)['total'] : 0;
     if ($stmt) sqlsrv_free_stmt($stmt);
-    
+
     // Próximas acciones (próximos 7 días)
-    $sql = "SELECT COUNT(*) as total FROM SeguimientosCRM 
-            WHERE IdVendedor = ? AND ProximaAccion IS NOT NULL 
+    $sql = "SELECT COUNT(*) as total FROM SeguimientosCRM
+            WHERE IdVendedor = ? AND ProximaAccion IS NOT NULL
             AND ProximaAccion BETWEEN GETDATE() AND DATEADD(day, 7, GETDATE())";
     $stmt = sqlsrv_query($conn, $sql, array($idVendedor));
     $estadisticas['proximas_acciones'] = $stmt ? sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)['total'] : 0;
     if ($stmt) sqlsrv_free_stmt($stmt);
-    
+
+} elseif (esSupervisor()) {
+    // Estadísticas para supervisor (filtrado por sucursal)
+    $idSucursal = $usuario['id_sucursal'];
+
+    // Total de clientes de la sucursal
+    $sql = "SELECT COUNT(*) as total FROM ClientesCRM WHERE Activo = 1 AND IdSucursal = ?";
+    $stmt = sqlsrv_query($conn, $sql, array($idSucursal));
+    $estadisticas['clientes'] = $stmt ? sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)['total'] : 0;
+    if ($stmt) sqlsrv_free_stmt($stmt);
+
+    // Total de vendedores de la sucursal
+    $sql = "SELECT COUNT(*) as total FROM VendedoresCRM WHERE Activo = 1 AND IdSucursal = ?";
+    $stmt = sqlsrv_query($conn, $sql, array($idSucursal));
+    $estadisticas['vendedores'] = $stmt ? sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)['total'] : 0;
+    if ($stmt) sqlsrv_free_stmt($stmt);
+
+    // Seguimientos del mes de la sucursal
+    $sql = "SELECT COUNT(*) as total FROM SeguimientosCRM s
+            INNER JOIN ClientesCRM c ON s.IdCliente = c.IdCliente
+            WHERE c.IdSucursal = ? AND MONTH(s.Fecha) = MONTH(GETDATE()) AND YEAR(s.Fecha) = YEAR(GETDATE())";
+    $stmt = sqlsrv_query($conn, $sql, array($idSucursal));
+    $estadisticas['seguimientos_mes'] = $stmt ? sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)['total'] : 0;
+    if ($stmt) sqlsrv_free_stmt($stmt);
+
+    // Seguimientos pendientes de la sucursal
+    $sql = "SELECT COUNT(*) as total FROM SeguimientosCRM s
+            INNER JOIN ClientesCRM c ON s.IdCliente = c.IdCliente
+            WHERE c.IdSucursal = ? AND s.Estado = 'Pendiente'";
+    $stmt = sqlsrv_query($conn, $sql, array($idSucursal));
+    $estadisticas['pendientes'] = $stmt ? sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)['total'] : 0;
+    if ($stmt) sqlsrv_free_stmt($stmt);
+
 } else {
     // Estadísticas para administrador
-    
+
     // Total de clientes
     $sql = "SELECT COUNT(*) as total FROM ClientesCRM WHERE Activo = 1";
     $stmt = sqlsrv_query($conn, $sql);
     $estadisticas['clientes'] = $stmt ? sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)['total'] : 0;
     if ($stmt) sqlsrv_free_stmt($stmt);
-    
+
     // Total de vendedores
     $sql = "SELECT COUNT(*) as total FROM VendedoresCRM WHERE Activo = 1";
     $stmt = sqlsrv_query($conn, $sql);
     $estadisticas['vendedores'] = $stmt ? sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)['total'] : 0;
     if ($stmt) sqlsrv_free_stmt($stmt);
-    
+
     // Seguimientos del mes
-    $sql = "SELECT COUNT(*) as total FROM SeguimientosCRM 
+    $sql = "SELECT COUNT(*) as total FROM SeguimientosCRM
             WHERE MONTH(Fecha) = MONTH(GETDATE()) AND YEAR(Fecha) = YEAR(GETDATE())";
     $stmt = sqlsrv_query($conn, $sql);
     $estadisticas['seguimientos_mes'] = $stmt ? sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)['total'] : 0;
     if ($stmt) sqlsrv_free_stmt($stmt);
-    
+
     // Seguimientos pendientes (todos)
     $sql = "SELECT COUNT(*) as total FROM SeguimientosCRM WHERE Estado = 'Pendiente'";
     $stmt = sqlsrv_query($conn, $sql);
@@ -76,17 +108,25 @@ if (esVendedor()) {
 $actividad_reciente = array();
 
 if (esVendedor()) {
-    $sql = "SELECT TOP 10 s.*, c.Nombre as NombreCliente 
-            FROM SeguimientosCRM s 
-            INNER JOIN ClientesCRM c ON s.IdCliente = c.IdCliente 
-            WHERE s.IdVendedor = ? 
+    $sql = "SELECT TOP 10 s.*, c.Nombre as NombreCliente
+            FROM SeguimientosCRM s
+            INNER JOIN ClientesCRM c ON s.IdCliente = c.IdCliente
+            WHERE s.IdVendedor = ?
             ORDER BY s.FechaRegistro DESC";
     $stmt = sqlsrv_query($conn, $sql, array($usuario['id_vendedor']));
+} elseif (esSupervisor()) {
+    $sql = "SELECT TOP 10 s.*, c.Nombre as NombreCliente, v.Nombre as NombreVendedor
+            FROM SeguimientosCRM s
+            INNER JOIN ClientesCRM c ON s.IdCliente = c.IdCliente
+            INNER JOIN VendedoresCRM v ON s.IdVendedor = v.IdVendedor
+            WHERE c.IdSucursal = ?
+            ORDER BY s.FechaRegistro DESC";
+    $stmt = sqlsrv_query($conn, $sql, array($usuario['id_sucursal']));
 } else {
-    $sql = "SELECT TOP 10 s.*, c.Nombre as NombreCliente, v.Nombre as NombreVendedor 
-            FROM SeguimientosCRM s 
-            INNER JOIN ClientesCRM c ON s.IdCliente = c.IdCliente 
-            INNER JOIN VendedoresCRM v ON s.IdVendedor = v.IdVendedor 
+    $sql = "SELECT TOP 10 s.*, c.Nombre as NombreCliente, v.Nombre as NombreVendedor
+            FROM SeguimientosCRM s
+            INNER JOIN ClientesCRM c ON s.IdCliente = c.IdCliente
+            INNER JOIN VendedoresCRM v ON s.IdVendedor = v.IdVendedor
             ORDER BY s.FechaRegistro DESC";
     $stmt = sqlsrv_query($conn, $sql);
 }
@@ -102,19 +142,27 @@ if ($stmt) {
 $proximas_acciones = array();
 
 if (esVendedor()) {
-    $sql = "SELECT s.*, c.Nombre as NombreCliente 
-            FROM SeguimientosCRM s 
-            INNER JOIN ClientesCRM c ON s.IdCliente = c.IdCliente 
-            WHERE s.IdVendedor = ? AND s.ProximaAccion IS NOT NULL 
-            AND s.ProximaAccion >= GETDATE() 
+    $sql = "SELECT s.*, c.Nombre as NombreCliente
+            FROM SeguimientosCRM s
+            INNER JOIN ClientesCRM c ON s.IdCliente = c.IdCliente
+            WHERE s.IdVendedor = ? AND s.ProximaAccion IS NOT NULL
+            AND s.ProximaAccion >= GETDATE()
             ORDER BY s.ProximaAccion ASC";
     $stmt = sqlsrv_query($conn, $sql, array($usuario['id_vendedor']));
+} elseif (esSupervisor()) {
+    $sql = "SELECT TOP 15 s.*, c.Nombre as NombreCliente, v.Nombre as NombreVendedor
+            FROM SeguimientosCRM s
+            INNER JOIN ClientesCRM c ON s.IdCliente = c.IdCliente
+            INNER JOIN VendedoresCRM v ON s.IdVendedor = v.IdVendedor
+            WHERE c.IdSucursal = ? AND s.ProximaAccion IS NOT NULL AND s.ProximaAccion >= GETDATE()
+            ORDER BY s.ProximaAccion ASC";
+    $stmt = sqlsrv_query($conn, $sql, array($usuario['id_sucursal']));
 } else {
-    $sql = "SELECT TOP 15 s.*, c.Nombre as NombreCliente, v.Nombre as NombreVendedor 
-            FROM SeguimientosCRM s 
-            INNER JOIN ClientesCRM c ON s.IdCliente = c.IdCliente 
-            INNER JOIN VendedoresCRM v ON s.IdVendedor = v.IdVendedor 
-            WHERE s.ProximaAccion IS NOT NULL AND s.ProximaAccion >= GETDATE() 
+    $sql = "SELECT TOP 15 s.*, c.Nombre as NombreCliente, v.Nombre as NombreVendedor
+            FROM SeguimientosCRM s
+            INNER JOIN ClientesCRM c ON s.IdCliente = c.IdCliente
+            INNER JOIN VendedoresCRM v ON s.IdVendedor = v.IdVendedor
+            WHERE s.ProximaAccion IS NOT NULL AND s.ProximaAccion >= GETDATE()
             ORDER BY s.ProximaAccion ASC";
     $stmt = sqlsrv_query($conn, $sql);
 }
@@ -126,14 +174,27 @@ if ($stmt) {
     sqlsrv_free_stmt($stmt);
 }
 
-// Estadísticas por tipo de seguimiento (solo para admin)
+// Estadísticas por tipo de seguimiento (para admin y supervisor)
 $stats_tipos = array();
 if (esAdmin()) {
-    $sql = "SELECT Tipo, COUNT(*) as total 
-            FROM SeguimientosCRM 
+    $sql = "SELECT Tipo, COUNT(*) as total
+            FROM SeguimientosCRM
             WHERE MONTH(Fecha) = MONTH(GETDATE()) AND YEAR(Fecha) = YEAR(GETDATE())
             GROUP BY Tipo";
     $stmt = sqlsrv_query($conn, $sql);
+    if ($stmt) {
+        while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
+            $stats_tipos[$row['Tipo']] = $row['total'];
+        }
+        sqlsrv_free_stmt($stmt);
+    }
+} elseif (esSupervisor()) {
+    $sql = "SELECT Tipo, COUNT(*) as total
+            FROM SeguimientosCRM s
+            INNER JOIN ClientesCRM c ON s.IdCliente = c.IdCliente
+            WHERE c.IdSucursal = ? AND MONTH(s.Fecha) = MONTH(GETDATE()) AND YEAR(s.Fecha) = YEAR(GETDATE())
+            GROUP BY Tipo";
+    $stmt = sqlsrv_query($conn, $sql, array($usuario['id_sucursal']));
     if ($stmt) {
         while ($row = sqlsrv_fetch_array($stmt, SQLSRV_FETCH_ASSOC)) {
             $stats_tipos[$row['Tipo']] = $row['total'];
@@ -402,8 +463,11 @@ if (esAdmin()) {
         <div class="header">
             <div>
                 <h1>Dashboard CRM</h1>
-                <p>Bienvenido, <?php echo htmlspecialchars($usuario['nombre']); ?> 
+                <p>Bienvenido, <?php echo htmlspecialchars($usuario['nombre']); ?>
                    <small>(<?php echo ucfirst($usuario['rol']); ?>)</small>
+                   <?php if (esSupervisor() && $usuario['sucursal_nombre']): ?>
+                   <br><small>Sucursal: <?php echo htmlspecialchars($usuario['sucursal_nombre']); ?></small>
+                   <?php endif; ?>
                 </p>
             </div>
             <div class="user-info">
@@ -422,11 +486,11 @@ if (esAdmin()) {
                 <div class="label">Clientes <?php echo esVendedor() ? 'Asignados' : 'Activos'; ?></div>
             </div>
             
-            <?php if (esAdmin()): ?>
+            <?php if (esAdmin() || esSupervisor()): ?>
             <div class="stat-card stat-vendedores">
                 <div class="icon">🏢</div>
                 <div class="number"><?php echo $estadisticas['vendedores']; ?></div>
-                <div class="label">Vendedores Activos</div>
+                <div class="label">Vendedores <?php echo esSupervisor() ? 'de Sucursal' : 'Activos'; ?></div>
             </div>
             <?php endif; ?>
             
@@ -510,8 +574,8 @@ if (esAdmin()) {
                 <a href="seguimientos.php" class="action-btn">
                     📋 Gestionar Seguimientos
                 </a>
-                
-                <?php if (esAdmin()): ?>
+
+                <?php if (esAdmin() || esSupervisor()): ?>
                 <a href="clientes.php" class="action-btn secondary">
                     👥 Gestionar Clientes
                 </a>
@@ -521,19 +585,22 @@ if (esAdmin()) {
                 <a href="reportes.php" class="action-btn">
                     📊 Ver Reportes
                 </a>
-                <?php else: ?>
-                <a href="mis_clientes.php" class="action-btn secondary">
-                    👤 Mis Clientes
+                <a href="repvendedor.php" class="action-btn">
+                    📈 Reportes de Vendedores
                 </a>
-                <a href="mi_agenda.php" class="action-btn secondary">
-                    📅 Mi Agenda
+                <a href="asignar.php" class="action-btn secondary">
+                    🔗 Asignar Clientes
+                </a>
+                <?php elseif (esVendedor()): ?>
+                <a href="repvendedor.php" class="action-btn">
+                    📈 Mis Reportes
                 </a>
                 <?php endif; ?>
             </div>
         </div>
 
-        <?php if (esAdmin() && !empty($stats_tipos)): ?>
-        <!-- Estadísticas adicionales para admin -->
+        <?php if ((esAdmin() || esSupervisor()) && !empty($stats_tipos)): ?>
+        <!-- Estadísticas adicionales para admin y supervisor -->
         <div class="content-section">
             <h3>📊 Estadísticas del Mes por Tipo</h3>
             <div class="stats-grid">

@@ -30,6 +30,10 @@ function esVendedor() {
     return $_SESSION['rol'] === 'vendedor';
 }
 
+function esSupervisor() {
+    return $_SESSION['rol'] === 'supervisor';
+}
+
 function cerrarSesion() {
     session_destroy();
     header("Location: login.php");
