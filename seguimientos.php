@@ -264,18 +264,18 @@ if (esAdmin()) {
             justify-content: space-between; 
             align-items: center; 
         }
-        .btn { 
-            padding: 10px 20px; 
-            background: #007bff; 
-            color: white; 
-            border: none; 
-            border-radius: 5px; 
-            cursor: pointer; 
+        .btn {
+            padding: 10px 20px;
+            background: #5DADE2;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
             text-decoration: none;
             display: inline-block;
             margin: 0 5px;
         }
-        .btn:hover { background: #0056b3; }
+        .btn:hover { background: #3498DB; }
         .btn-success { background: #28a745; }
         .btn-success:hover { background: #1e7e34; }
         .btn-warning { background: #ffc107; color: #212529; }

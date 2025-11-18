@@ -78,9 +78,9 @@ if ($_POST) {
     <meta charset="UTF-8">
     <title>Login - CRM</title>
     <style>
-    body { 
-        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
-        background: linear-gradient(135deg, #f2f4f8 0%, #e5e9f2 100%);
+    body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        background: linear-gradient(135deg, #ECF0F1 0%, #BDC3C7 100%);
         margin: 0;
         padding: 0;
         height: 100vh;
@@ -130,18 +130,18 @@ if ($_POST) {
 
     input[type="text"]:focus, input[type="password"]:focus, select:focus {
         outline: none;
-        border-color: #a5b1c2;
-        box-shadow: 0 0 0 3px rgba(165, 177, 194, 0.2);
+        border-color: #5DADE2;
+        box-shadow: 0 0 0 3px rgba(93, 173, 226, 0.2);
     }
 
-    .btn { 
-        width: 100%; 
-        padding: 15px; 
-        background: linear-gradient(135deg, #cfd9df 0%, #e2ebf0 100%);
-        color: #333; 
-        border: none; 
-        border-radius: 10px; 
-        cursor: pointer; 
+    .btn {
+        width: 100%;
+        padding: 15px;
+        background: linear-gradient(135deg, #5DADE2 0%, #3498DB 100%);
+        color: #fff;
+        border: none;
+        border-radius: 10px;
+        cursor: pointer;
         font-size: 16px;
         font-weight: 600;
         transition: all 0.3s ease;
@@ -149,7 +149,7 @@ if ($_POST) {
 
     .btn:hover {
         transform: translateY(-2px);
-        box-shadow: 0 8px 20px rgba(165, 177, 194, 0.3);
+        box-shadow: 0 8px 20px rgba(52, 152, 219, 0.4);
     }
 
     .error { 
@@ -165,7 +165,7 @@ if ($_POST) {
         text-align: center;
         margin-bottom: 20px;
         font-size: 48px;
-        color: #5d6d7e;
+        color: #5DADE2;
     }
 </style>
 
@@ -209,7 +209,7 @@ if ($_POST) {
         </form>
         
         <div style="text-align: center; margin-top: 20px; color: #666; font-size: 14px;">
-            <p>¿Olvidaste tu contraseña? <a href="mailto:admin@empresa.com" style="color: #667eea;">Contacta al administrador</a></p>
+            <p>¿Olvidaste tu contraseña? <a href="mailto:admin@empresa.com" style="color: #3498DB;">Contacta al administrador</a></p>
         </div>
     </div>
 </body>
