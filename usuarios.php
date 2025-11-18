@@ -177,7 +177,7 @@ $stmtUsuarios = sqlsrv_query($conn, $sqlUsuarios);
             border: none;
         }
         .btn-primary {
-            background-color: #007bff;
+            background-color: #5DADE2;
             color: white;
         }
         .btn-success {

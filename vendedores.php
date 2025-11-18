@@ -215,8 +215,8 @@ if ($accion == 'editar' && isset($_GET['id'])) {
         .btn-sm { margin: 2px; }
         .vendedor-info { padding: 10px; border-left: 4px solid #28a745; }
         .vendedor-inactivo { opacity: 0.6; background-color: #f8f9fa; }
-        .user-info { 
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        .user-info {
+            background: linear-gradient(135deg, #5DADE2 0%, #3498DB 100%);
             color: white;
             padding: 15px;
             border-radius: 10px;

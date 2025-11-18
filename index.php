@@ -21,7 +21,7 @@ $usuario = obtenerDatosUsuario();
 
     body {
         font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        background: linear-gradient(135deg, #f2f4f8 0%, #e5e9f2 100%);
+        background: linear-gradient(135deg, #ECF0F1 0%, #BDC3C7 100%);
         height: 100vh;
         overflow: hidden;
     }
@@ -42,8 +42,8 @@ $usuario = obtenerDatosUsuario();
     }
 
     .menu-lateral h2 {
-        background: linear-gradient(135deg, #cfd9df 0%, #e2ebf0 100%);
-        color: #333;
+        background: linear-gradient(135deg, #5DADE2 0%, #3498DB 100%);
+        color: #fff;
         padding: 25px 20px;
         font-size: 24px;
         font-weight: 600;
@@ -84,18 +84,18 @@ $usuario = obtenerDatosUsuario();
     }
 
     .menu-lateral a:hover {
-        background: linear-gradient(135deg, #dfe6e9 0%, #b2bec3 100%);
+        background: linear-gradient(135deg, #ECF0F1 0%, #BDC3C7 100%);
         color: #222;
         transform: translateX(5px);
-        border-left: 4px solid #a5b1c2;
-        box-shadow: 0 4px 12px rgba(165, 177, 194, 0.3);
+        border-left: 4px solid #5DADE2;
+        box-shadow: 0 4px 12px rgba(93, 173, 226, 0.3);
     }
 
     .menu-lateral a.activo {
-        background: linear-gradient(135deg, #a3c4dc 0%, #dce3e8 100%);
-        color: #222;
-        border-left: 4px solid #5d8aa8;
-        box-shadow: 0 4px 12px rgba(163, 196, 220, 0.4);
+        background: linear-gradient(135deg, #85C1E9 0%, #5DADE2 100%);
+        color: #fff;
+        border-left: 4px solid #3498DB;
+        box-shadow: 0 4px 12px rgba(52, 152, 219, 0.4);
     }
 
     .contenido {
@@ -124,7 +124,7 @@ $usuario = obtenerDatosUsuario();
         font-size: 3em;
         color: #333;
         margin-bottom: 20px;
-        background: linear-gradient(135deg, #a5b1c2 0%, #dcdde1 100%);
+        background: linear-gradient(135deg, #5DADE2 0%, #3498DB 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         background-clip: text;
@@ -141,19 +141,19 @@ $usuario = obtenerDatosUsuario();
     .imagen-crm {
         width: 400px;
         height: 300px;
-        background: linear-gradient(135deg, #cfd9df 0%, #e2ebf0 100%);
+        background: linear-gradient(135deg, #85C1E9 0%, #5DADE2 100%);
         border-radius: 20px;
         display: flex;
         align-items: center;
         justify-content: center;
-        box-shadow: 0 12px 28px rgba(165, 177, 194, 0.3);
+        box-shadow: 0 12px 28px rgba(93, 173, 226, 0.3);
         position: relative;
         overflow: hidden;
     }
 
     .icono-crm {
         font-size: 80px;
-        color: #5d6d7e;
+        color: #fff;
         z-index: 1;
     }
 

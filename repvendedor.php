@@ -160,7 +160,7 @@ switch ($tipoReporte) {
         }
 
         .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #5DADE2 0%, #3498DB 100%);
             color: white;
             padding: 1rem 2rem;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
@@ -231,8 +231,8 @@ switch ($tipoReporte) {
         .form-group select:focus,
         .form-group input:focus {
             outline: none;
-            border-color: #667eea;
-            box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.25);
+            border-color: #5DADE2;
+            box-shadow: 0 0 0 2px rgba(93, 173, 226, 0.25);
         }
 
         .btn {
@@ -249,13 +249,13 @@ switch ($tipoReporte) {
         }
 
         .btn-primary {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #5DADE2 0%, #3498DB 100%);
             color: white;
         }
 
         .btn-primary:hover {
             transform: translateY(-2px);
-            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+            box-shadow: 0 4px 15px rgba(52, 152, 219, 0.4);
         }
 
         .btn-secondary {
@@ -342,7 +342,7 @@ switch ($tipoReporte) {
         .stat-number {
             font-size: 2rem;
             font-weight: bold;
-            color: #667eea;
+            color: #3498DB;
             margin-bottom: 0.5rem;
         }
 

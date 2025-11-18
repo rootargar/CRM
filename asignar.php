@@ -121,14 +121,14 @@ $stmtAsignaciones = sqlsrv_query($conn, $sqlAsignaciones);
             font-size: 14px;
         }
         input[type="submit"] {
-            background-color: #007bff;
+            background-color: #5DADE2;
             color: white;
             border: none;
             cursor: pointer;
             margin-top: 10px;
         }
         input[type="submit"]:hover {
-            background-color: #0056b3;
+            background-color: #3498DB;
         }
         .btn-desasignar {
             background-color: #dc3545;
